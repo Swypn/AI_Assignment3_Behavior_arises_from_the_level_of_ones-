@@ -3,93 +3,68 @@
 
 #include <string>
 
-void TRex::sense(Level* level)
-{
-	auto tree = level->find_tree();
-	if(tree)
-	{
-		tree_position = tree->position;
-		tree_in_sight = true;
-	} else {
-		tree_in_sight = false;
-	}
-}
-
-void TRex::decide()
-{
-	if(tree_in_sight)
-	{
-		target_position = tree_position;
-		target_aquired = true;
-	}
-
-	if(energy < 5 && Vector2Distance(tree_position, position) < 60)
-	{
-		should_eat = true;
-	}
-}
-
-void TRex::act(Level* level)
-{
-	if(target_aquired)
-	{
-		Vector2 tree_direction = Vector2Normalize(Vector2Subtract(tree_position, position));
-
-		position = Vector2Add(position, Vector2Scale(tree_direction, SPEED * GetFrameTime()));
-	}
-
-	if(should_eat)
-	{
-		auto closest_agent = level->find_tree(); // BAD
-		if(closest_agent)
-		{
-			energy += closest_agent->eat_me(this);
-		}
-
-		should_eat = false;
-	}
-}
-
-void TRex::draw()
-{
-	DrawCircle(position.x, position.y, 20, BLUE);
-	DrawCircle(position.x, position.y, energy / MAX_ENERGY * 10 + 2, YELLOW);
-}
-
-float TRex::eat_me(Agent* eater)
-{
-	return 0;
-}
-
-void Tree::sense(Level* level)
+void Triangle::sense(Level* level)
 {
 }
 
-void Tree::decide()
+void Triangle::decide()
 {
 }
 
-void Tree::act(Level* level)
+void Triangle::act(Level* level)
 {
-	energy += GetFrameTime(); // From the sun
 }
 
-void Tree::draw()
+void Triangle::draw()
 {
-	DrawCircle(position.x, position.y, 40, DARKGREEN);
-	
-	std::string text = "E: " + std::to_string(energy);
-	DrawText(text.c_str(), position.x, position.y - 60, 20, BLACK);
 }
 
-float Tree::eat_me(Agent* eater)
+float Triangle::eat_me(Agent* eater)
 {
-	float result = energy / 2;
-	energy -= result;
-
-	return result;
+	return 0.0f;
 }
 
+void Rectangle::sense(Level* level)
+{
+}
+
+void Rectangle::decide()
+{
+}
+
+void Rectangle::act(Level* level)
+{
+}
+
+void Rectangle::draw()
+{
+}
+
+float Rectangle::eat_me(Agent* eater)
+{
+	return 0.0f;
+}
+
+void Circle::sense(Level* level)
+{
+}
+
+void Circle::decide()
+{
+}
+
+void Circle::act(Level* level)
+{
+}
+
+void Circle::draw()
+{
+}
+
+float Circle::eat_me(Agent* eater)
+{
+	return 0.0f;
+}
 
 Agent* Level::get_agent(int id)
 {
@@ -102,14 +77,53 @@ Agent* Level::get_agent(int id)
 	return nullptr;
 }
 
-Agent* Level::find_tree()
+Agent* Level::spawn_agent(Triangle agent)
 {
-	if(tree_agents.size())
-	{
-		return &tree_agents.back();
-	}
-	return nullptr;
+	Agent* result = nullptr;
+
+	triangle_agents.push_back(agent);
+	result = &triangle_agents.back();
+
+	pending_agents.push_back(result); // Enqueue it so that it can be added to the level at the beginning of the next frame
+
+	return result;
 }
+
+Agent* Level::spawn_agent(Rectangle agent)
+{
+	Agent* result = nullptr;
+
+	rectangle_agents.push_back(agent);
+	result = &rectangle_agents.back();
+
+	pending_agents.push_back(result); // Enqueue it so that it can be added to the level at the beginning of the next frame
+
+	return result;
+}
+
+Agent* Level::spawn_agent(Circle agent)
+{
+	Agent* result = nullptr;
+
+	circle_agents.push_back(agent);
+	result = &circle_agents.back();
+
+	pending_agents.push_back(result); // Enqueue it so that it can be added to the level at the beginning of the next frame
+
+	return result;
+}
+
+//Agent* Level::spawn_agent(Tree agent)
+//{
+//	Agent* result = nullptr;
+//
+//	tree_agents.push_back(agent);
+//	result = &tree_agents.back();
+//
+//	pending_agents.push_back(result); // Enqueue it so that it can be added to the level at the beginning of the next frame
+//
+//	return result;
+//}
 
 void Level::remove_dead_and_add_pending_agents()
 {
@@ -127,10 +141,9 @@ void Level::remove_dead_and_add_pending_agents()
 
 	// This must happen _after_ we remove agents from the vector 'all_agents'.
 	// @AddMoreHere
-	trex_agents.remove_if([](TRex& a){ return a.dead; });
-	tree_agents.remove_if([](Tree& a){ return a.dead; });
-
-
+	triangle_agents.remove_if([](Triangle& a) {return a.dead; });
+	rectangle_agents.remove_if([](Rectangle& a) {return a.dead; });
+	circle_agents.remove_if([](Circle& a) {return a.dead;  });
 	// Add all pending agents
 	for(Agent* agent: pending_agents)
 	{
@@ -144,30 +157,6 @@ void Level::remove_dead_and_add_pending_agents()
 	pending_agents.clear(); // Important that we clear this, otherwise we'll add the same agents every frame.
 }
 
-Agent* Level::spawn_agent(TRex agent)
-{
-	Agent* result = nullptr;
-
-	trex_agents.push_back(agent);
-	result = &trex_agents.back();
-	
-	pending_agents.push_back(result); // Enqueue it so that it can be added to the level at the beginning of the next frame
-
-	return result;
-}
-
-Agent* Level::spawn_agent(Tree agent)
-{
-	Agent* result = nullptr;
-
-	tree_agents.push_back(agent);
-	result = &tree_agents.back();
-	
-	pending_agents.push_back(result); // Enqueue it so that it can be added to the level at the beginning of the next frame
-
-	return result;
-}
-
 void Level::reset()
 {
 	// TODO: Implement this yourself, clear all lists and vectors, after that spawn agents
@@ -175,11 +164,14 @@ void Level::reset()
     // this is here just as an example.
     // You should also replace "SillyAgent", that is also just an example.
 
-	auto tree = spawn_agent(Tree());
-    tree->position = {100,200};
-    
-	auto trex = spawn_agent(TRex());
-    trex->position = {300,100};
+	auto triangle = spawn_agent(Triangle());
+	triangle->position = { 100, 200 };
+
+	auto rectangle = spawn_agent(Rectangle());
+	rectangle->position = { 200, 200 };
+
+	auto circle = spawn_agent(Circle());
+	circle->position = {300, 200};
 }
 
 void Level::update()
@@ -208,3 +200,5 @@ void Level::draw()
 		agent->draw();
 	}
 }
+
+
