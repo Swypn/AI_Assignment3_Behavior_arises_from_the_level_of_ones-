@@ -76,7 +76,11 @@ public:
 	float energy = MAX_ENERGY;
 	BehaviorNode* behaviorTree;
 	int id           = 0;
-	Vector2 position = {};
+	Vector2 position1 = {};
+	Vector2 position2 = {};
+	Vector2 position3 = {};
+	Vector2 size = {};
+	float radius;
 	bool dead        = false;
 
 	virtual void sense(Level* level)  = 0;
@@ -85,12 +89,10 @@ public:
 
 	virtual void draw()   = 0;
 
-	virtual float eat_me(Agent* eater) = 0; // Returns the energy eater gains after eating
-
 	virtual ~Agent() = default;
 };
 
-class Triangle : public Agent 
+class CollectorTriangle : public Agent 
 {
 	// Collector
 	float speed = 100.0f;
@@ -102,17 +104,15 @@ class Triangle : public Agent
 
 	bool shouldCollect;
 public:
+	void setupCollectorTriangleBehaviorTree(Agent* agent);
 	void sense(Level* level) override;
 	void decide() override;
-	void act(Level* level) override;
+	void act(Level* level);
 	void draw() override;
 
-	float eat_me(Agent* eater) override;
-
-	virtual ~Triangle() = default;
 };
 
-class Rectangle : public Agent
+class GuardianRectangle : public Agent
 {
 	// Guardian
 	float speed = 100.0f;
@@ -127,17 +127,15 @@ class Rectangle : public Agent
 
 	bool shouldChase;
 public:
+	void setupGuardianRectangleBehaviorTree(Agent* agent);
 	void sense(Level* level) override;
 	void decide() override;
-	void act(Level* level) override;
+	void act(Level* level);
 	void draw() override;
 
-	float eat_me(Agent* eater) override;
-
-	virtual ~Rectangle() = default;
 };
 
-class Circle : public Agent
+class DistractorCircle : public Agent
 {
 	// Distractor
 	float speed = 100.0f;
@@ -152,14 +150,12 @@ class Circle : public Agent
 
 	bool shouldDistract;
 public:
+	void setupDistractorCircleBehaviorTree(Agent* agent);
 	void sense(Level* level) override;
 	void decide() override;
-	void act(Level* level) override;
+	void act(Level* level);
 	void draw() override;
 
-	float eat_me(Agent* eater) override;
-
-	virtual ~Circle() = default;
 };
 
 class Level 
@@ -169,9 +165,9 @@ class Level
 	//NOTE(Filippo): Using a list here is not the best idea, ideally you should store agents in some other data structure that keeps them close to each other while being pointer-stable.
 	//std::list<TRex> trex_agents;
 	//std::list<Tree> tree_agents;
-	std::list<Triangle> triangle_agents;
-	std::list<Rectangle> rectangle_agents;
-	std::list<Circle> circle_agents;
+	std::list<CollectorTriangle> triangle_agents;
+	std::list<GuardianRectangle> rectangle_agents;
+	std::list<DistractorCircle> circle_agents;
 	// @AddMoreHere
 
 	std::unordered_map<int, Agent*> id_to_agent;
@@ -181,13 +177,12 @@ class Level
 
 public:
 	Agent* get_agent(int id);
-	Agent* find_tree();
 
 	//Agent* spawn_agent(TRex agent);
 	//Agent* spawn_agent(Tree agent);
-	Agent* spawn_agent(Triangle agent);
-	Agent* spawn_agent(Rectangle agent);
-	Agent* spawn_agent(Circle agent);
+	Agent* spawn_agent(CollectorTriangle agent);
+	Agent* spawn_agent(GuardianRectangle agent);
+	Agent* spawn_agent(DistractorCircle agent);
 
 	void reset();
 	void update();

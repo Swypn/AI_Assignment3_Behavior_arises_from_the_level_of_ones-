@@ -1,70 +1,72 @@
 #include "level.h"
 #include "raymath.h"
-
 #include <string>
 
-void Triangle::sense(Level* level)
+void CollectorTriangle::setupCollectorTriangleBehaviorTree(Agent* agent)
 {
 }
 
-void Triangle::decide()
+void CollectorTriangle::sense(Level* level)
 {
 }
 
-void Triangle::act(Level* level)
+void CollectorTriangle::decide()
 {
 }
 
-void Triangle::draw()
+void CollectorTriangle::act(Level* level)
 {
 }
 
-float Triangle::eat_me(Agent* eater)
+void CollectorTriangle::draw()
 {
-	return 0.0f;
+	DrawTriangle(position1, position2, position3, GOLD);
 }
 
-void Rectangle::sense(Level* level)
-{
-}
 
-void Rectangle::decide()
+void GuardianRectangle::setupGuardianRectangleBehaviorTree(Agent* agent)
 {
 }
 
-void Rectangle::act(Level* level)
+void GuardianRectangle::sense(Level* level)
 {
 }
 
-void Rectangle::draw()
+void GuardianRectangle::decide()
 {
 }
 
-float Rectangle::eat_me(Agent* eater)
-{
-	return 0.0f;
-}
-
-void Circle::sense(Level* level)
+void GuardianRectangle::act(Level* level)
 {
 }
 
-void Circle::decide()
+void GuardianRectangle::draw()
+{
+	DrawRectangle(position1.x, position1.y, size.x, size.y, BLUE);
+}
+
+
+void DistractorCircle::setupDistractorCircleBehaviorTree(Agent* agent)
 {
 }
 
-void Circle::act(Level* level)
+void DistractorCircle::sense(Level* level)
 {
 }
 
-void Circle::draw()
+void DistractorCircle::decide()
 {
 }
 
-float Circle::eat_me(Agent* eater)
+void DistractorCircle::act(Level* level)
 {
-	return 0.0f;
 }
+
+void DistractorCircle::draw()
+{
+	DrawCircle(position1.x, position1.y, radius, RED);
+}
+
 
 Agent* Level::get_agent(int id)
 {
@@ -77,7 +79,7 @@ Agent* Level::get_agent(int id)
 	return nullptr;
 }
 
-Agent* Level::spawn_agent(Triangle agent)
+Agent* Level::spawn_agent(CollectorTriangle agent)
 {
 	Agent* result = nullptr;
 
@@ -89,7 +91,7 @@ Agent* Level::spawn_agent(Triangle agent)
 	return result;
 }
 
-Agent* Level::spawn_agent(Rectangle agent)
+Agent* Level::spawn_agent(GuardianRectangle agent)
 {
 	Agent* result = nullptr;
 
@@ -101,7 +103,7 @@ Agent* Level::spawn_agent(Rectangle agent)
 	return result;
 }
 
-Agent* Level::spawn_agent(Circle agent)
+Agent* Level::spawn_agent(DistractorCircle agent)
 {
 	Agent* result = nullptr;
 
@@ -141,9 +143,9 @@ void Level::remove_dead_and_add_pending_agents()
 
 	// This must happen _after_ we remove agents from the vector 'all_agents'.
 	// @AddMoreHere
-	triangle_agents.remove_if([](Triangle& a) {return a.dead; });
-	rectangle_agents.remove_if([](Rectangle& a) {return a.dead; });
-	circle_agents.remove_if([](Circle& a) {return a.dead;  });
+	triangle_agents.remove_if([](CollectorTriangle& a) {return a.dead; });
+	rectangle_agents.remove_if([](GuardianRectangle& a) {return a.dead; });
+	circle_agents.remove_if([](DistractorCircle& a) {return a.dead;  });
 	// Add all pending agents
 	for(Agent* agent: pending_agents)
 	{
@@ -164,14 +166,18 @@ void Level::reset()
     // this is here just as an example.
     // You should also replace "SillyAgent", that is also just an example.
 
-	auto triangle = spawn_agent(Triangle());
-	triangle->position = { 100, 200 };
+	auto triangle = spawn_agent(CollectorTriangle());
+	triangle->position1 = { 100, 200 };
+	triangle->position2 = {150, 200};
+	triangle->position3 = { 125, 150 };
 
-	auto rectangle = spawn_agent(Rectangle());
-	rectangle->position = { 200, 200 };
+	auto rectangle = spawn_agent(GuardianRectangle());
+	rectangle->position1 = { 200, 200 };
+	rectangle->size = { 50, 50 };
 
-	auto circle = spawn_agent(Circle());
-	circle->position = {300, 200};
+	auto circle = spawn_agent(DistractorCircle());
+	circle->position1 = {300, 200};
+	circle->radius = 25.0f;
 }
 
 void Level::update()
