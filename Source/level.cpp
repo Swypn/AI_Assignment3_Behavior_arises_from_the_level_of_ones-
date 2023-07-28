@@ -3,6 +3,28 @@
 #include <string>
 
 
+void CollectableSquare::setupBehaviourTree()
+{
+}
+
+void CollectableSquare::sense(Level* level)
+{
+}
+
+void CollectableSquare::decide()
+{
+}
+
+void CollectableSquare::act(Level* level)
+{
+}
+
+void CollectableSquare::draw()
+{
+	DrawRectangle(position1.x, position1.y, size.x, size.y, BLACK);
+}
+
+
 void CollectorTriangle::setupBehaviourTree()
 {
 	SequenceNode* searchAndMoveToItem = new SequenceNode();
@@ -106,6 +128,18 @@ Agent* Level::get_agent(int id)
 	return nullptr;
 }
 
+Agent* Level::spawn_agent(CollectableSquare agent)
+{
+	Agent* result = nullptr;
+
+	square_agents.push_back(agent);
+	result = &square_agents.back();
+
+	pending_agents.push_back(result);
+	
+	return result;
+}
+
 Agent* Level::spawn_agent(CollectorTriangle agent)
 {
 	Agent* result = nullptr;
@@ -170,9 +204,11 @@ void Level::remove_dead_and_add_pending_agents()
 
 	// This must happen _after_ we remove agents from the vector 'all_agents'.
 	// @AddMoreHere
+	square_agents.remove_if([](CollectableSquare& a) {return a.dead; });
 	triangle_agents.remove_if([](CollectorTriangle& a) {return a.dead; });
 	rectangle_agents.remove_if([](GuardianRectangle& a) {return a.dead; });
 	circle_agents.remove_if([](DistractorCircle& a) {return a.dead;  });
+
 	// Add all pending agents
 	for(Agent* agent: pending_agents)
 	{
@@ -192,6 +228,9 @@ void Level::reset()
 
     // this is here just as an example.
     // You should also replace "SillyAgent", that is also just an example.
+	int squareCount = 10;
+
+	setupCollectableSquares(squareCount);
 
 	auto triangle = spawn_agent(CollectorTriangle());
 	triangle->position1 = { 100, 200 };
@@ -202,10 +241,14 @@ void Level::reset()
 	auto rectangle = spawn_agent(GuardianRectangle());
 	rectangle->position1 = { 200, 200 };
 	rectangle->size = { 50, 50 };
+	rectangle->setupBehaviourTree();
 
 	auto circle = spawn_agent(DistractorCircle());
 	circle->position1 = {300, 200};
 	circle->radius = 25.0f;
+	circle->setupBehaviourTree();
+
+
 }
 
 void Level::update()
@@ -215,6 +258,12 @@ void Level::update()
 
 	if (currentTime > tickTimer) 
 	{
+		for (auto& collectableSquare : square_agents)
+		{
+			collectableSquare.sense(this);
+			collectableSquare.decide();
+		}
+
 		for (auto& collectorTriangle : triangle_agents)
 		{
 			collectorTriangle.sense(this);
@@ -233,6 +282,11 @@ void Level::update()
 			distractorCircle.decide();
 		}
 		currentTime = 0.0f;
+	}
+
+	for (auto& collectableSquare : square_agents)
+	{
+		collectableSquare.act(this);
 	}
 
 	for (auto& collectorTriangle : triangle_agents)
@@ -267,6 +321,11 @@ void Level::update()
 
 void Level::draw()
 {
+	for (auto& collectableSquare : square_agents)
+	{
+		collectableSquare.draw();
+	}
+
 	for(auto& collectorTriangle : triangle_agents)
 	{
 		collectorTriangle.draw();
@@ -281,6 +340,17 @@ void Level::draw()
 	{
 		distractorCircle.draw();
 	}
+
 }
 
+void Level::setupCollectableSquares(int count)
+{
+	std::srand(std::time(nullptr));
 
+	for (int i = 0; i < count; ++i) {
+		CollectableSquare square;
+		square.position1 = { static_cast<float>(std::rand() % GetScreenWidth()), static_cast<float>(std::rand() % GetScreenHeight()) }; // Random position
+		square.size = { 25, 25 }; // Fixed size for example, you can randomize this as well
+		spawn_agent(square);
+	}
+}
