@@ -48,6 +48,28 @@ void CollectorTriangle::sense(Level* level)
 {
 }
 
+void CollectorTriangle::sense(Level* level, std::list<CollectableSquare>& squares)
+{
+	// Reset closest square distance and reference
+	float closestSquareDist = std::numeric_limits<float>::max();
+	CollectableSquare* closestSquare = nullptr;
+
+	// Find closest square
+	for (CollectableSquare& square : squares)
+	{
+		float dist = Vector2Distance(this->position1, square.position1);
+		if (dist < closestSquareDist)
+		{
+			closestSquareDist = dist;
+			closestSquare = &square;
+		}
+	}
+
+	// Store closest square
+	this->itemPosition = closestSquare ? closestSquare->position1 : Vector2{};
+	this->itemInSight = closestSquare != nullptr;
+}
+
 void CollectorTriangle::decide()
 {
 	behaviorTree->execute(this);
@@ -59,17 +81,75 @@ void CollectorTriangle::act(Level* level)
 
 void CollectorTriangle::draw()
 {
+	position1 = { center.x, center.y - size.y / 2 };
+	position2 = { center.x - size.x / 2, center.y + size.y / 2 };
+	position3 = { center.x + size.x / 2, center.y + size.y / 2 };
+
+	// If you want to rotate the triangle according to the orientation:
+	position1 = Vector2Rotate(position1, orientation);
+	position2 = Vector2Rotate(position2, orientation);
+	position3 = Vector2Rotate(position3, orientation);
+
 	DrawTriangle(position1, position2, position3, GOLD);
 }
 
 bool CollectorTriangle::searchForItem(Agent* agent)
 {
-	return false;
+
+	if (itemInSight) {
+		targetPosition = itemPosition;
+		targetAquired = true;
+	}
+	return itemInSight;
 }
 
 bool CollectorTriangle::moveToItem(Agent* agent)
 {
-	return false;
+	if (targetAquired) {
+		Vector2 direction = Vector2Subtract(targetPosition, center);
+		direction = Vector2Normalize(direction);
+		Vector2 lerpTarget = Vector2Lerp(center, targetPosition, speed * GetFrameTime());
+		Vector2 newPosition = Vector2Add(center, Vector2Scale(direction, Vector2Distance(center, lerpTarget)));
+
+		// bounds checking here
+		if (newPosition.x < 0) newPosition.x = 0;
+		else if (newPosition.x > GetScreenWidth()) newPosition.x = GetScreenWidth();
+
+		if (newPosition.y < 0) newPosition.y = 0;
+		else if (newPosition.y > GetScreenHeight()) newPosition.y = GetScreenHeight();
+
+		center = newPosition;
+
+		// update vertices after center
+		position1 = { center.x, center.y - size.y / 2 };
+		position2 = { center.x - size.x / 2, center.y + size.y / 2 };
+		position3 = { center.x + size.x / 2, center.y + size.y / 2 };
+	}
+	return targetAquired;
+}
+
+Vector2 CollectorTriangle::Vector2Rotate(Vector2 point, float rad)
+{
+	float s = sin(rad);
+	float c = cos(rad);
+
+	// Translate point back to origin
+	point.x -= center.x;
+	point.y -= center.y;
+
+	// Rotate point
+	float xnew = point.x * c - point.y * s;
+	float ynew = point.x * s + point.y * c;
+
+	// Translate point back
+	Vector2 newPoint = { xnew + center.x, ynew + center.y };
+	return newPoint;
+}
+
+Vector2 CollectorTriangle::Vector2Lerp(Vector2 a, Vector2 b, float t)
+{
+	Vector2 Lerp = { a.x + t * (b.x - a.x), a.y + t * (b.y - a.y) };
+	return Lerp;
 }
 
 void GuardianRectangle::setupBehaviourTree()
@@ -236,6 +316,7 @@ void Level::reset()
 	triangle->position1 = { 100, 200 };
 	triangle->position2 = {150, 200};
 	triangle->position3 = { 125, 150 };
+	triangle->size = {50, 50};
 	triangle->setupBehaviourTree();
 
 	auto rectangle = spawn_agent(GuardianRectangle());
@@ -266,7 +347,7 @@ void Level::update()
 
 		for (auto& collectorTriangle : triangle_agents)
 		{
-			collectorTriangle.sense(this);
+			collectorTriangle.sense(this, square_agents);
 			collectorTriangle.decide();
 		}
 

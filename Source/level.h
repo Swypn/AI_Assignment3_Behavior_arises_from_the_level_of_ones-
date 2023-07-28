@@ -81,6 +81,7 @@ public:
 	Vector2 position2 = {};
 	Vector2 position3 = {};
 	Vector2 size = {};
+	Vector2 center = {0, 0};
 	float radius;
 	bool dead        = false;
 
@@ -109,6 +110,7 @@ class CollectorTriangle : public Agent
 {
 	// Collector
 	float speed = 100.0f;
+	float orientation = 0.0f;
 	Vector2 itemPosition;
 	bool itemInSight;
 	int item;
@@ -119,17 +121,20 @@ class CollectorTriangle : public Agent
 public:
 	void setupBehaviourTree() override;
 	void sense(Level* level) override;
+	void sense(Level* level, std::list<CollectableSquare>& squares);
 	void decide() override;
 	void act(Level* level);
 	void draw() override;
 	bool searchForItem(Agent* agent); 
 	bool moveToItem(Agent* agent);
+	Vector2 Vector2Rotate(Vector2 point, float rad);
+	Vector2 Vector2Lerp(Vector2 a, Vector2 b, float t);
 };
 
 class GuardianRectangle : public Agent
 {
 	// Guardian
-	float speed = 100.0f;
+	float speed = 10.0f;
 
 	Vector2 patrolArea;
 	bool intruderInSight;
