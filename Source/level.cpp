@@ -2,8 +2,24 @@
 #include "raymath.h"
 #include <string>
 
-void CollectorTriangle::setupCollectorTriangleBehaviorTree(Agent* agent)
+
+void CollectorTriangle::setupBehaviourTree()
 {
+	SequenceNode* searchAndMoveToItem = new SequenceNode();
+
+
+	ActionNode* FindItem = new ActionNode([this](Agent* agent) {
+		return this->searchForItem(agent);
+		});
+
+	ActionNode* moveToItem = new ActionNode([this](Agent* agent) {
+		return this->moveToItem(agent);
+		});
+
+	searchAndMoveToItem->addChild(FindItem);
+	searchAndMoveToItem->addChild(moveToItem);
+
+	this->behaviorTree = searchAndMoveToItem;
 }
 
 void CollectorTriangle::sense(Level* level)
@@ -12,6 +28,7 @@ void CollectorTriangle::sense(Level* level)
 
 void CollectorTriangle::decide()
 {
+	behaviorTree->execute(this);
 }
 
 void CollectorTriangle::act(Level* level)
@@ -23,8 +40,17 @@ void CollectorTriangle::draw()
 	DrawTriangle(position1, position2, position3, GOLD);
 }
 
+bool CollectorTriangle::searchForItem(Agent* agent)
+{
+	return false;
+}
 
-void GuardianRectangle::setupGuardianRectangleBehaviorTree(Agent* agent)
+bool CollectorTriangle::moveToItem(Agent* agent)
+{
+	return false;
+}
+
+void GuardianRectangle::setupBehaviourTree()
 {
 }
 
@@ -34,6 +60,7 @@ void GuardianRectangle::sense(Level* level)
 
 void GuardianRectangle::decide()
 {
+	//behaviorTree->execute(this);
 }
 
 void GuardianRectangle::act(Level* level)
@@ -45,8 +72,7 @@ void GuardianRectangle::draw()
 	DrawRectangle(position1.x, position1.y, size.x, size.y, BLUE);
 }
 
-
-void DistractorCircle::setupDistractorCircleBehaviorTree(Agent* agent)
+void DistractorCircle::setupBehaviourTree()
 {
 }
 
@@ -56,6 +82,7 @@ void DistractorCircle::sense(Level* level)
 
 void DistractorCircle::decide()
 {
+	//behaviorTree->execute(this);
 }
 
 void DistractorCircle::act(Level* level)
@@ -170,6 +197,7 @@ void Level::reset()
 	triangle->position1 = { 100, 200 };
 	triangle->position2 = {150, 200};
 	triangle->position3 = { 125, 150 };
+	triangle->setupBehaviourTree();
 
 	auto rectangle = spawn_agent(GuardianRectangle());
 	rectangle->position1 = { 200, 200 };
@@ -183,27 +211,75 @@ void Level::reset()
 void Level::update()
 {
 	remove_dead_and_add_pending_agents();
+	currentTime += GetFrameTime();
 
-	for(auto& agent : all_agents)
+	if (currentTime > tickTimer) 
 	{
-		if(agent->energy > 0)
+		for (auto& collectorTriangle : triangle_agents)
 		{
-			agent->energy -= GetFrameTime();
-		} else {
-			agent->dead = true;
+			collectorTriangle.sense(this);
+			collectorTriangle.decide();
 		}
-		// TODO: This piece of code needs to be changed to make sure that sense, decide, act, happen at different frequencies.
-		agent->sense(this);
-		agent->decide();
-		agent->act(this);
+
+		for (auto& guardianRectangle : rectangle_agents)
+		{
+			guardianRectangle.sense(this);
+			guardianRectangle.decide();
+		}
+
+		for (auto& distractorCircle : circle_agents)
+		{
+			distractorCircle.sense(this);
+			distractorCircle.decide();
+		}
+		currentTime = 0.0f;
 	}
+
+	for (auto& collectorTriangle : triangle_agents)
+	{
+		collectorTriangle.act(this);
+	}
+
+	for (auto& guardianRectangle : rectangle_agents)
+	{
+		guardianRectangle.act(this);
+	}
+
+	for (auto& distractorCircle : circle_agents)
+	{
+		distractorCircle.act(this);
+	}
+	
+	//for(auto& agent : all_agents)
+	//{
+	//	if(agent->energy > 0)
+	//	{
+	//		agent->energy -= GetFrameTime();
+	//	} else {
+	//		agent->dead = true;
+	//	}
+	//	// TODO: This piece of code needs to be changed to make sure that sense, decide, act, happen at different frequencies.
+	//	agent->sense(this);
+	//	agent->decide();
+	//	agent->act(this);
+	//}
 }
 
 void Level::draw()
 {
-	for(auto& agent : all_agents)
+	for(auto& collectorTriangle : triangle_agents)
 	{
-		agent->draw();
+		collectorTriangle.draw();
+	}
+
+	for (auto&	guardianRectangle : rectangle_agents)
+	{
+		guardianRectangle.draw();
+	}
+	
+	for (auto& distractorCircle : circle_agents)
+	{
+		distractorCircle.draw();
 	}
 }
 
