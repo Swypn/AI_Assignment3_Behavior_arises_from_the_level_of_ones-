@@ -27,8 +27,10 @@ void CollectableSquare::draw()
 
 void CollectorTriangle::setupBehaviourTree()
 {
-	SequenceNode* searchAndMoveToItem = new SequenceNode();
+	SelectorNode* rootNode = new SelectorNode();
 
+	SequenceNode* searchAndMoveToItem = new SequenceNode();
+	rootNode->addChild(searchAndMoveToItem);
 
 	ActionNode* FindItem = new ActionNode([this](Agent* agent) {
 		return this->searchForItem(agent);
@@ -41,7 +43,7 @@ void CollectorTriangle::setupBehaviourTree()
 	searchAndMoveToItem->addChild(FindItem);
 	searchAndMoveToItem->addChild(moveToItem);
 
-	this->behaviorTree = searchAndMoveToItem;
+	this->behaviorTree = rootNode;
 }
 
 void CollectorTriangle::sense(Level* level)
@@ -77,6 +79,9 @@ void CollectorTriangle::decide()
 
 void CollectorTriangle::act(Level* level)
 {
+	if (targetAquired) {
+		moveToItem(this);
+	}
 }
 
 void CollectorTriangle::draw()
@@ -108,8 +113,7 @@ bool CollectorTriangle::moveToItem(Agent* agent)
 	if (targetAquired) {
 		Vector2 direction = Vector2Subtract(targetPosition, center);
 		direction = Vector2Normalize(direction);
-		Vector2 lerpTarget = Vector2Lerp(center, targetPosition, speed * GetFrameTime());
-		Vector2 newPosition = Vector2Add(center, Vector2Scale(direction, Vector2Distance(center, lerpTarget)));
+		Vector2 newPosition = Vector2Add(center, Vector2Scale(direction, speed * GetFrameTime()));
 
 		// bounds checking here
 		if (newPosition.x < 0) newPosition.x = 0;
@@ -167,6 +171,7 @@ void GuardianRectangle::decide()
 
 void GuardianRectangle::act(Level* level)
 {
+	
 }
 
 void GuardianRectangle::draw()
@@ -255,18 +260,6 @@ Agent* Level::spawn_agent(DistractorCircle agent)
 
 	return result;
 }
-
-//Agent* Level::spawn_agent(Tree agent)
-//{
-//	Agent* result = nullptr;
-//
-//	tree_agents.push_back(agent);
-//	result = &tree_agents.back();
-//
-//	pending_agents.push_back(result); // Enqueue it so that it can be added to the level at the beginning of the next frame
-//
-//	return result;
-//}
 
 void Level::remove_dead_and_add_pending_agents()
 {
