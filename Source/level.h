@@ -88,7 +88,7 @@ public:
 	virtual void sense(Level* level)  = 0;
 	virtual void decide() = 0;
 	virtual void act(Level* level)    = 0;
-	virtual void setupBehaviourTree() = 0;
+	virtual void setupBehaviourTree(Level* level) = 0;
 	virtual void draw()   = 0;
 
 	virtual ~Agent() = default;
@@ -99,7 +99,7 @@ class CollectableSquare : public Agent
 public:
 	bool collected = false;
 
-	void setupBehaviourTree() override;
+	void setupBehaviourTree(Level* level) override;
 	void sense(Level* level) override;
 	void decide() override;
 	void act(Level* level) override;
@@ -116,10 +116,10 @@ class CollectorTriangle : public Agent
 	int item;
 	Vector2 targetPosition;
 	bool targetAquired;
-
 	bool shouldCollect;
+	Vector2 distractorPosition;
 public:
-	void setupBehaviourTree() override;
+	void setupBehaviourTree(Level* level) override;
 	void sense(Level* level) override;
 	void sense(Level* level, std::list<CollectableSquare>& squares);
 	void decide() override;
@@ -127,6 +127,8 @@ public:
 	void draw() override;
 	bool searchForItem(Agent* agent); 
 	bool moveToItem(Agent* agent);
+	bool detectDistractor(Agent* agent, Level* level);
+	bool evadeDistractor(Agent* agent);
 	Vector2 Vector2Rotate(Vector2 point, float rad);
 	Vector2 Vector2Lerp(Vector2 a, Vector2 b, float t);
 };
@@ -146,7 +148,7 @@ class GuardianRectangle : public Agent
 
 	bool shouldChase;
 public:
-	void setupBehaviourTree() override;
+	void setupBehaviourTree(Level* level) override;
 	void sense(Level* level) override;
 	void decide() override;
 	void act(Level* level);
@@ -169,27 +171,25 @@ class DistractorCircle : public Agent
 
 	bool shouldDistract;
 public:
-	void setupBehaviourTree() override;
+	void setupBehaviourTree(Level* level) override;
 	void sense(Level* level) override;
 	void decide() override;
 	void act(Level* level);
 	void draw() override;
-
 };
-
-
-
 
 class Level 
 {
 	int last_id = 0;
 	float tickTimer = 0.5f;
 	float currentTime = 0.0f;
+	
+	int uncollectedSquareCount = 0;
 	//NOTE(Filippo): Using a list here is not the best idea, ideally you should store agents in some other data structure that keeps them close to each other while being pointer-stable.
 	std::list<CollectableSquare> square_agents;
 	std::list<CollectorTriangle> triangle_agents;
 	std::list<GuardianRectangle> rectangle_agents;
-	std::list<DistractorCircle> circle_agents;
+	
 	// @AddMoreHere
 
 	std::unordered_map<int, Agent*> id_to_agent;
@@ -198,6 +198,8 @@ class Level
 	std::vector<Agent*> pending_agents; // Agents that will be added at the beginning of the next frame
 
 public:
+	std::list<DistractorCircle> circle_agents;
+	int score;
 	Agent* get_agent(int id);
 
 	Agent* spawn_agent(CollectableSquare agent);

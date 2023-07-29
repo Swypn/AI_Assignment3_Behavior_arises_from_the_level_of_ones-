@@ -1,9 +1,9 @@
 #include "level.h"
 #include "raymath.h"
 #include <string>
+#include <iostream>
 
-
-void CollectableSquare::setupBehaviourTree()
+void CollectableSquare::setupBehaviourTree(Level* level)
 {
 }
 
@@ -13,10 +13,16 @@ void CollectableSquare::sense(Level* level)
 
 void CollectableSquare::decide()
 {
+
 }
 
 void CollectableSquare::act(Level* level)
 {
+	if(collected)
+	{
+		level->score++;
+		dead = true;
+	}
 }
 
 void CollectableSquare::draw()
@@ -25,12 +31,25 @@ void CollectableSquare::draw()
 }
 
 
-void CollectorTriangle::setupBehaviourTree()
+void CollectorTriangle::setupBehaviourTree(Level* level)
 {
 	SelectorNode* rootNode = new SelectorNode();
+	//Evade distractor sequence
 
-	SequenceNode* searchAndMoveToItem = new SequenceNode();
-	rootNode->addChild(searchAndMoveToItem);
+	SequenceNode* evadeDistractorSequence = new SequenceNode();
+	ActionNode* detectDistractorNode = new ActionNode([this, level](Agent* agent) {
+		return this->detectDistractor(agent, level);
+		});
+
+	ActionNode* evadeDistractorNode = new ActionNode([this](Agent* agent) {
+		return this->evadeDistractor(agent);
+		});
+
+	evadeDistractorSequence->addChild(detectDistractorNode);
+	evadeDistractorSequence->addChild(evadeDistractorNode);
+	
+	// Search and move to item sequence
+	SequenceNode* searchAndMoveToItemSequence = new SequenceNode();
 
 	ActionNode* FindItem = new ActionNode([this](Agent* agent) {
 		return this->searchForItem(agent);
@@ -40,9 +59,12 @@ void CollectorTriangle::setupBehaviourTree()
 		return this->moveToItem(agent);
 		});
 
-	searchAndMoveToItem->addChild(FindItem);
-	searchAndMoveToItem->addChild(moveToItem);
-
+	searchAndMoveToItemSequence->addChild(FindItem);
+	searchAndMoveToItemSequence->addChild(moveToItem);
+	
+	rootNode->addChild(evadeDistractorSequence);
+	rootNode->addChild(searchAndMoveToItemSequence);
+	
 	this->behaviorTree = rootNode;
 }
 
@@ -53,17 +75,23 @@ void CollectorTriangle::sense(Level* level)
 void CollectorTriangle::sense(Level* level, std::list<CollectableSquare>& squares)
 {
 	// Reset closest square distance and reference
-	float closestSquareDist = std::numeric_limits<float>::max();
+	float closestSquareDistance = std::numeric_limits<float>::max();
 	CollectableSquare* closestSquare = nullptr;
 
 	// Find closest square
 	for (CollectableSquare& square : squares)
 	{
-		float dist = Vector2Distance(this->position1, square.position1);
-		if (dist < closestSquareDist)
+		float distance = Vector2Distance(this->position1, square.position1);
+		if (distance < closestSquareDistance)
 		{
-			closestSquareDist = dist;
+			closestSquareDistance = distance;
 			closestSquare = &square;
+		}
+
+		if (Vector2Distance(this->position1, square.position1) < 50.0) {
+			square.collected = true;
+			std::cout << "collected true" << std::endl;
+			//score++;
 		}
 	}
 
@@ -81,6 +109,7 @@ void CollectorTriangle::act(Level* level)
 {
 	if (targetAquired) {
 		moveToItem(this);
+		
 	}
 }
 
@@ -132,6 +161,30 @@ bool CollectorTriangle::moveToItem(Agent* agent)
 	return targetAquired;
 }
 
+bool CollectorTriangle::detectDistractor(Agent* agent, Level* level)
+{
+	for (auto& circle : level->circle_agents) {
+		float dist = Vector2Distance(center, circle.position1);
+		if (dist < 100.0f) { // Change this value to adjust the detection radius
+			distractorPosition = circle.position1;
+			return true;
+		}
+	}
+	return false;
+}
+
+bool CollectorTriangle::evadeDistractor(Agent* agent)
+{
+	if (Vector2Length(Vector2Subtract(position1, distractorPosition)) < 100.0f)
+	{
+		Vector2 evadeDirection = Vector2Normalize(Vector2Subtract(position1, distractorPosition));
+		Vector2 newPosition = Vector2Add(position1, Vector2Scale(evadeDirection, speed * GetFrameTime()));
+		position1 = newPosition;
+		return true;
+	}
+	return false;
+}
+
 Vector2 CollectorTriangle::Vector2Rotate(Vector2 point, float rad)
 {
 	float s = sin(rad);
@@ -156,7 +209,7 @@ Vector2 CollectorTriangle::Vector2Lerp(Vector2 a, Vector2 b, float t)
 	return Lerp;
 }
 
-void GuardianRectangle::setupBehaviourTree()
+void GuardianRectangle::setupBehaviourTree(Level* level)
 {
 }
 
@@ -179,7 +232,7 @@ void GuardianRectangle::draw()
 	DrawRectangle(position1.x, position1.y, size.x, size.y, BLUE);
 }
 
-void DistractorCircle::setupBehaviourTree()
+void DistractorCircle::setupBehaviourTree(Level* level)
 {
 }
 
@@ -297,10 +350,6 @@ void Level::remove_dead_and_add_pending_agents()
 
 void Level::reset()
 {
-	// TODO: Implement this yourself, clear all lists and vectors, after that spawn agents
-
-    // this is here just as an example.
-    // You should also replace "SillyAgent", that is also just an example.
 	int squareCount = 10;
 
 	setupCollectableSquares(squareCount);
@@ -310,18 +359,17 @@ void Level::reset()
 	triangle->position2 = {150, 200};
 	triangle->position3 = { 125, 150 };
 	triangle->size = {50, 50};
-	triangle->setupBehaviourTree();
+	triangle->setupBehaviourTree(this);
 
 	auto rectangle = spawn_agent(GuardianRectangle());
 	rectangle->position1 = { 200, 200 };
 	rectangle->size = { 50, 50 };
-	rectangle->setupBehaviourTree();
+	rectangle->setupBehaviourTree(this);
 
 	auto circle = spawn_agent(DistractorCircle());
 	circle->position1 = {300, 200};
 	circle->radius = 25.0f;
-	circle->setupBehaviourTree();
-
+	circle->setupBehaviourTree(this);
 
 }
 
@@ -378,19 +426,23 @@ void Level::update()
 		distractorCircle.act(this);
 	}
 	
-	//for(auto& agent : all_agents)
-	//{
-	//	if(agent->energy > 0)
-	//	{
-	//		agent->energy -= GetFrameTime();
-	//	} else {
-	//		agent->dead = true;
-	//	}
-	//	// TODO: This piece of code needs to be changed to make sure that sense, decide, act, happen at different frequencies.
-	//	agent->sense(this);
-	//	agent->decide();
-	//	agent->act(this);
-	//}
+	bool allCollected = true;
+	for (auto& square : square_agents) {
+		if (!square.collected) {
+			allCollected = false;
+			break;
+		}
+	}
+
+	if (allCollected) {
+		for (auto& square : square_agents) {
+			square.collected = false;
+			
+			// reset position or any other properties
+		}
+		int squareCount = 10;
+		setupCollectableSquares(squareCount);
+	}
 }
 
 void Level::draw()
@@ -415,6 +467,10 @@ void Level::draw()
 		distractorCircle.draw();
 	}
 
+
+	std::string scoreString = "Score: " + std::to_string(score);
+
+	DrawText(scoreString.c_str(), 10, 10, 20, PURPLE);
 }
 
 void Level::setupCollectableSquares(int count)
