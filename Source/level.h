@@ -136,7 +136,7 @@ public:
 class GuardianRectangle : public Agent
 {
 	// Guardian
-	float speed = 10.0f;
+	float speed = 50.0f;
 
 	Vector2 patrolArea;
 	bool intruderInSight;
@@ -147,19 +147,25 @@ class GuardianRectangle : public Agent
 	bool targetAquired;
 
 	bool shouldChase;
+
+	Vector2 distractorPosition;
 public:
 	void setupBehaviourTree(Level* level) override;
 	void sense(Level* level) override;
 	void decide() override;
 	void act(Level* level);
 	void draw() override;
-
+	bool detectDistractor(Agent* agent, Level* level);
+	bool chaseAwayDistractor(Agent* agent);
 };
 
 class DistractorCircle : public Agent
 {
 	// Distractor
-	float speed = 100.0f;
+	float speed = 50.0f;
+
+	CollectableSquare* sqaureTarget;
+	CollectorTriangle* triangleTarget;
 
 	Vector2 distractionTarget;
 	bool agentInSight;
@@ -170,34 +176,38 @@ class DistractorCircle : public Agent
 	bool targetAquired;
 
 	bool shouldDistract;
+
+	Vector2 guardianPosition;
 public:
 	void setupBehaviourTree(Level* level) override;
 	void sense(Level* level) override;
 	void decide() override;
 	void act(Level* level);
 	void draw() override;
+	bool isCollectorNearSquare(Agent* agent, Level* level);
+	bool moveBetweenCollectorAndSquare(Agent* agent);
+	bool detectGuardian(Agent* agent, Level* level);
+	bool evadeGuardian(Agent* agent);
 };
 
 class Level 
 {
 	int last_id = 0;
-	float tickTimer = 0.5f;
+	float tickTimer = 0.2f;
 	float currentTime = 0.0f;
 	
 	int uncollectedSquareCount = 0;
-	//NOTE(Filippo): Using a list here is not the best idea, ideally you should store agents in some other data structure that keeps them close to each other while being pointer-stable.
-	std::list<CollectableSquare> square_agents;
-	std::list<CollectorTriangle> triangle_agents;
-	std::list<GuardianRectangle> rectangle_agents;
 	
-	// @AddMoreHere
-
 	std::unordered_map<int, Agent*> id_to_agent;
 	std::vector<Agent*> all_agents;
 
 	std::vector<Agent*> pending_agents; // Agents that will be added at the beginning of the next frame
 
 public:
+	//NOTE(Filippo): Using a list here is not the best idea, ideally you should store agents in some other data structure that keeps them close to each other while being pointer-stable.
+	std::list<CollectableSquare> square_agents;
+	std::list<CollectorTriangle> triangle_agents;
+	std::list<GuardianRectangle> rectangle_agents;
 	std::list<DistractorCircle> circle_agents;
 	int score;
 	Agent* get_agent(int id);

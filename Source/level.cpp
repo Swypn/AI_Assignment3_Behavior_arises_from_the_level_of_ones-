@@ -164,8 +164,8 @@ bool CollectorTriangle::moveToItem(Agent* agent)
 bool CollectorTriangle::detectDistractor(Agent* agent, Level* level)
 {
 	for (auto& circle : level->circle_agents) {
-		float dist = Vector2Distance(center, circle.position1);
-		if (dist < 100.0f) { // Change this value to adjust the detection radius
+		float distance = Vector2Distance(center, circle.position1);
+		if (distance < 100.0f) { // Change this value to adjust the detection radius
 			distractorPosition = circle.position1;
 			return true;
 		}
@@ -211,20 +211,42 @@ Vector2 CollectorTriangle::Vector2Lerp(Vector2 a, Vector2 b, float t)
 
 void GuardianRectangle::setupBehaviourTree(Level* level)
 {
+	SelectorNode* rootNode = new SelectorNode();
+
+	SequenceNode* protectCollectorSequence = new SequenceNode();
+
+	ActionNode* detectDistractorNode = new ActionNode([this, level](Agent* agent) {
+		return this->detectDistractor(agent, level);
+		});
+
+	ActionNode* chaseAwayDistractorNode = new ActionNode([this](Agent* agent) {
+		return this->chaseAwayDistractor(agent);
+		});
+
+	protectCollectorSequence->addChild(detectDistractorNode);
+	protectCollectorSequence->addChild(chaseAwayDistractorNode);
+
+	rootNode->addChild(protectCollectorSequence);
+	
+	this->behaviorTree = rootNode;
 }
 
 void GuardianRectangle::sense(Level* level)
 {
+
 }
 
 void GuardianRectangle::decide()
 {
-	//behaviorTree->execute(this);
+	behaviorTree->execute(this);
 }
 
 void GuardianRectangle::act(Level* level)
 {
-	
+	if(targetAquired)
+	{
+		chaseAwayDistractor(this);
+	}
 }
 
 void GuardianRectangle::draw()
@@ -232,8 +254,70 @@ void GuardianRectangle::draw()
 	DrawRectangle(position1.x, position1.y, size.x, size.y, BLUE);
 }
 
+bool GuardianRectangle::detectDistractor(Agent* agent, Level* level)
+{
+	for (auto& circle : level->circle_agents) {
+		float distance = Vector2Distance(position1, circle.position1);
+		if (distance < 1000.0f) { // Change this value to adjust the detection radius
+			distractorPosition = circle.position1;
+			targetAquired = true;
+			return true;
+		}
+	}
+	targetAquired = false;
+	return false;
+}
+
+bool GuardianRectangle::chaseAwayDistractor(Agent* agent)
+{
+	if (Vector2Length(Vector2Subtract(position1, distractorPosition)) < 1000.0f)
+	{
+		Vector2 chaseDirection = Vector2Normalize(Vector2Subtract(distractorPosition, position1));
+		Vector2 newPosition = Vector2Add(position1, Vector2Scale(chaseDirection, speed * GetFrameTime()));
+		position1 = newPosition;
+		return true;
+	}
+	return false;
+}
+
 void DistractorCircle::setupBehaviourTree(Level* level)
 {
+	SelectorNode* rootNode = new SelectorNode();
+
+	// avoid guardian
+	SequenceNode* avoidGuardianSequence = new SequenceNode();
+
+	ActionNode* checkGuardianNode = new ActionNode([this, level](Agent* agent)
+		{
+			return this->detectGuardian(this, level);
+		});
+
+	ActionNode* avoidGuardianNode = new ActionNode([this](Agent* agent)
+		{
+			return this->evadeGuardian(this);
+		});
+
+	avoidGuardianSequence->addChild(checkGuardianNode);
+	avoidGuardianSequence->addChild(avoidGuardianNode);
+
+	// move between sqaure and rectangle
+	SequenceNode* moveBetweenSequence = new SequenceNode();
+
+	ActionNode* checkCollectorNearSquareNode = new ActionNode([this, level](Agent* agent) {
+		return this->isCollectorNearSquare(agent, level);
+		});
+
+	ActionNode* moveBetweenCollectorAndSquareNode = new ActionNode([this](Agent* agent) {
+		return this->moveBetweenCollectorAndSquare(agent);
+		});
+
+	moveBetweenSequence->addChild(checkCollectorNearSquareNode);
+	moveBetweenSequence->addChild(moveBetweenCollectorAndSquareNode);
+
+	rootNode->addChild(avoidGuardianSequence);
+	rootNode->addChild(moveBetweenSequence);
+
+	this->behaviorTree = rootNode;
 }
 
 void DistractorCircle::sense(Level* level)
@@ -242,16 +326,75 @@ void DistractorCircle::sense(Level* level)
 
 void DistractorCircle::decide()
 {
-	//behaviorTree->execute(this);
+	behaviorTree->execute(this);
 }
 
 void DistractorCircle::act(Level* level)
 {
+	if(targetAquired)
+	{
+		moveBetweenCollectorAndSquare(this);
+	}
 }
 
 void DistractorCircle::draw()
 {
 	DrawCircle(position1.x, position1.y, radius, RED);
+}
+
+bool DistractorCircle::isCollectorNearSquare(Agent* agent, Level* level)
+{
+	for (auto& collectorTriangle : level->triangle_agents)
+	{
+		for(auto& collectableSquare : level->square_agents)
+		{
+			if(!collectableSquare.collected && Vector2Distance(collectorTriangle.position1, collectableSquare.position1) < 100.0f)
+			{
+				sqaureTarget = &collectableSquare;
+				triangleTarget = &collectorTriangle;
+				targetAquired = true;
+				return true;
+			}
+		}
+	}
+	targetAquired = false;
+	return false;
+}
+
+bool DistractorCircle::moveBetweenCollectorAndSquare(Agent* agent)
+{
+	if(triangleTarget && sqaureTarget)
+	{
+		Vector2 targetPosition = Vector2Scale(Vector2Add(triangleTarget->position1, sqaureTarget->position1), 0.5f);
+		Vector2 direction = Vector2Normalize(Vector2Subtract(targetPosition, position1));
+		position1 = Vector2Add(position1, Vector2Scale(direction, speed * GetFrameTime()));
+		return true;
+	}
+	return false;
+}
+
+bool DistractorCircle::detectGuardian(Agent* agent, Level* level)
+{
+	for (auto& rectangle : level->rectangle_agents) {
+		float distance = Vector2Distance(position1, rectangle.position1);
+		if (distance < 100.0f) { // Change this value to adjust the detection radius
+			guardianPosition = rectangle.position1;
+			return true;
+		}
+	}
+	return false;
+}
+
+bool DistractorCircle::evadeGuardian(Agent* agent)
+{
+	if (Vector2Length(Vector2Subtract(position1, guardianPosition)) < 100.0f)
+	{
+		Vector2 evadeDirection = Vector2Normalize(Vector2Subtract(position1, guardianPosition));
+		Vector2 newPosition = Vector2Add(position1, Vector2Scale(evadeDirection, speed * GetFrameTime()));
+		position1 = newPosition;
+		return true;
+	}
+	return false;
 }
 
 
@@ -329,7 +472,6 @@ void Level::remove_dead_and_add_pending_agents()
 	}
 
 	// This must happen _after_ we remove agents from the vector 'all_agents'.
-	// @AddMoreHere
 	square_agents.remove_if([](CollectableSquare& a) {return a.dead; });
 	triangle_agents.remove_if([](CollectorTriangle& a) {return a.dead; });
 	rectangle_agents.remove_if([](GuardianRectangle& a) {return a.dead; });
