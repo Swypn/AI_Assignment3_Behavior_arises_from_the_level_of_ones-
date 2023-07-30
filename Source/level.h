@@ -136,7 +136,7 @@ public:
 class GuardianRectangle : public Agent
 {
 	// Guardian
-	float speed = 50.0f;
+	float speed = 20.0f;
 
 	Vector2 patrolArea;
 	bool intruderInSight;

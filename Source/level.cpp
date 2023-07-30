@@ -109,7 +109,9 @@ void CollectorTriangle::act(Level* level)
 {
 	if (targetAquired) {
 		moveToItem(this);
-		
+	} else if(!targetAquired)
+	{
+		evadeDistractor(this);
 	}
 }
 
@@ -130,10 +132,15 @@ void CollectorTriangle::draw()
 bool CollectorTriangle::searchForItem(Agent* agent)
 {
 
-	if (itemInSight) {
+	if (itemInSight && shouldCollect) {
 		targetPosition = itemPosition;
 		targetAquired = true;
 	}
+	else 
+	{
+		targetAquired = false;
+	}
+	
 	return itemInSight;
 }
 
@@ -163,23 +170,38 @@ bool CollectorTriangle::moveToItem(Agent* agent)
 
 bool CollectorTriangle::detectDistractor(Agent* agent, Level* level)
 {
+	bool distractorNearby = false;
+
 	for (auto& circle : level->circle_agents) {
 		float distance = Vector2Distance(center, circle.position1);
 		if (distance < 100.0f) { // Change this value to adjust the detection radius
 			distractorPosition = circle.position1;
-			return true;
+			distractorNearby = true;
+			break;
 		}
 	}
-	return false;
+
+	if(distractorNearby)
+	{
+		targetAquired = false;
+		shouldCollect = false;
+	} 
+	else 
+	{
+		targetAquired = true;
+		shouldCollect = true;
+	}
+
+	return distractorNearby;
 }
 
 bool CollectorTriangle::evadeDistractor(Agent* agent)
 {
-	if (Vector2Length(Vector2Subtract(position1, distractorPosition)) < 100.0f)
+	if (Vector2Length(Vector2Subtract(center, distractorPosition)) < 200.0f)
 	{
-		Vector2 evadeDirection = Vector2Normalize(Vector2Subtract(position1, distractorPosition));
-		Vector2 newPosition = Vector2Add(position1, Vector2Scale(evadeDirection, speed * GetFrameTime()));
-		position1 = newPosition;
+		Vector2 evadeDirection = Vector2Normalize(Vector2Subtract(center, distractorPosition));
+		Vector2 newPosition = Vector2Add(center, Vector2Scale(evadeDirection, speed * GetFrameTime()));
+		center = newPosition;
 		return true;
 	}
 	return false;
@@ -264,6 +286,7 @@ bool GuardianRectangle::detectDistractor(Agent* agent, Level* level)
 			return true;
 		}
 	}
+
 	targetAquired = false;
 	return false;
 }
@@ -335,6 +358,10 @@ void DistractorCircle::act(Level* level)
 	{
 		moveBetweenCollectorAndSquare(this);
 	}
+	else if (!targetAquired)
+	{
+		evadeGuardian(this);
+	}
 }
 
 void DistractorCircle::draw()
@@ -377,11 +404,13 @@ bool DistractorCircle::detectGuardian(Agent* agent, Level* level)
 {
 	for (auto& rectangle : level->rectangle_agents) {
 		float distance = Vector2Distance(position1, rectangle.position1);
-		if (distance < 100.0f) { // Change this value to adjust the detection radius
+		if (distance < 200.0f) { // Change this value to adjust the detection radius
 			guardianPosition = rectangle.position1;
+			targetAquired = false;
 			return true;
 		}
 	}
+	
 	return false;
 }
 
