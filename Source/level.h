@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <functional>
 #include <ctime>
+#include <random>
 class Level;
 class Agent;
 
@@ -125,7 +126,8 @@ public:
 	void decide() override;
 	void act(Level* level);
 	void draw() override;
-	bool searchForItem(Agent* agent); 
+	bool searchForItem(Agent* agent, Level* level); 
+	Vector2 findNewTarget(Agent* agent, Level* level);
 	bool moveToItem(Agent* agent);
 	bool detectDistractor(Agent* agent, Level* level);
 	bool evadeDistractor(Agent* agent);
@@ -186,6 +188,8 @@ public:
 	void draw() override;
 	bool isCollectorNearSquare(Agent* agent, Level* level);
 	bool moveBetweenCollectorAndSquare(Agent* agent);
+	bool shouldChaseCollector(Agent* agent, Level* level);
+	bool chaseCollector(Agent* agent);
 	bool detectGuardian(Agent* agent, Level* level);
 	bool evadeGuardian(Agent* agent);
 };

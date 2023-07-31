@@ -51,8 +51,8 @@ void CollectorTriangle::setupBehaviourTree(Level* level)
 	// Search and move to item sequence
 	SequenceNode* searchAndMoveToItemSequence = new SequenceNode();
 
-	ActionNode* FindItem = new ActionNode([this](Agent* agent) {
-		return this->searchForItem(agent);
+	ActionNode* FindItem = new ActionNode([this, level](Agent* agent) {
+		return this->searchForItem(agent, level);
 		});
 
 	ActionNode* moveToItem = new ActionNode([this](Agent* agent) {
@@ -129,11 +129,21 @@ void CollectorTriangle::draw()
 	DrawTriangle(position1, position2, position3, GOLD);
 }
 
-bool CollectorTriangle::searchForItem(Agent* agent)
+bool CollectorTriangle::searchForItem(Agent* agent, Level* level)
 {
 
 	if (itemInSight && shouldCollect) {
-		targetPosition = itemPosition;
+
+		float distanceToDistractor = Vector2Distance(itemPosition, distractorPosition);
+
+		if(distanceToDistractor < 100.0f)
+		{
+			targetPosition = findNewTarget(this, level);
+		} 
+		else 
+		{
+			targetPosition = itemPosition;
+		}
 		targetAquired = true;
 	}
 	else 
@@ -142,6 +152,24 @@ bool CollectorTriangle::searchForItem(Agent* agent)
 	}
 	
 	return itemInSight;
+}
+
+Vector2 CollectorTriangle::findNewTarget(Agent* agent, Level* level)
+{
+	Vector2 newTarget = itemPosition;
+	float maxDistance = Vector2Distance(itemPosition, distractorPosition);
+
+	for(auto& square : level->square_agents)
+	{
+		float distance = Vector2Distance(square.position1, distractorPosition);
+		if(distance > maxDistance)
+		{
+			maxDistance = distance;
+			newTarget = square.position1;
+		}
+	}
+
+	return newTarget;
 }
 
 bool CollectorTriangle::moveToItem(Agent* agent)
@@ -260,7 +288,7 @@ void GuardianRectangle::sense(Level* level)
 
 void GuardianRectangle::decide()
 {
-	behaviorTree->execute(this);
+	//behaviorTree->execute(this);
 }
 
 void GuardianRectangle::act(Level* level)
@@ -323,7 +351,7 @@ void DistractorCircle::setupBehaviourTree(Level* level)
 	avoidGuardianSequence->addChild(checkGuardianNode);
 	avoidGuardianSequence->addChild(avoidGuardianNode);
 
-	// move between sqaure and rectangle
+	// move between sqaure and triangle
 	SequenceNode* moveBetweenSequence = new SequenceNode();
 
 	ActionNode* checkCollectorNearSquareNode = new ActionNode([this, level](Agent* agent) {
@@ -336,6 +364,15 @@ void DistractorCircle::setupBehaviourTree(Level* level)
 
 	moveBetweenSequence->addChild(checkCollectorNearSquareNode);
 	moveBetweenSequence->addChild(moveBetweenCollectorAndSquareNode);
+
+	// chase triangle
+
+	SequenceNode* chaseCollectorSequence = new SequenceNode();
+
+	ActionNode* checkCollectorCloseNode = new ActionNode([this, level](Agent* agent)
+		{
+			return this->shouldChaseCollector(agent, level);
+		});
 
 	rootNode->addChild(avoidGuardianSequence);
 	rootNode->addChild(moveBetweenSequence);
@@ -397,6 +434,18 @@ bool DistractorCircle::moveBetweenCollectorAndSquare(Agent* agent)
 		position1 = Vector2Add(position1, Vector2Scale(direction, speed * GetFrameTime()));
 		return true;
 	}
+	return false;
+}
+
+bool DistractorCircle::shouldChaseCollector(Agent* agent, Level* level)
+{
+
+	return false;
+}
+
+bool DistractorCircle::chaseCollector(Agent* agent)
+{
+
 	return false;
 }
 
