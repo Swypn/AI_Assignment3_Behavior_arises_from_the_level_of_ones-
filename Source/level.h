@@ -32,7 +32,7 @@ public:
 		children.push_back(child);
 	}
 
-private:
+protected:
 	std::vector<BehaviorNode*> children;
 };
 
@@ -56,10 +56,31 @@ private:
 	std::vector<BehaviorNode*> children;
 };
 
+class RandomSelectorNode : public SelectorNode {
+public:
+	RandomSelectorNode(double delayInSeconds)
+		: delay(delayInSeconds),
+		accumulatedTime(0.0) {}
+
+	virtual bool execute(Agent* agent) override {
+		accumulatedTime += GetFrameTime();
+		if (accumulatedTime >= delay) {
+			accumulatedTime = 0.0;
+			currentChild = rand() % children.size();
+		}
+		return children[currentChild]->execute(agent);
+	}
+
+private:
+	double delay;
+	double accumulatedTime;
+	size_t currentChild = 0;
+};
+
 // Action node, it represents an action for the agent to perform
 class ActionNode : public BehaviorNode {
 public:
-	using ActionFunction = std::function<bool(Agent*)>;//bool (*)(Agent*);
+	using ActionFunction = std::function<bool(Agent*)>;
 
 	ActionNode(ActionFunction actionFunc) : actionFunction(actionFunc) {}
 
@@ -138,8 +159,8 @@ public:
 class GuardianRectangle : public Agent
 {
 	// Guardian
-	float speed = 20.0f;
-
+	float speed = 50.0f;
+	float maxDetectionDistance = 100.0f;
 	Vector2 patrolArea;
 	bool intruderInSight;
 
@@ -147,17 +168,19 @@ class GuardianRectangle : public Agent
 
 	Vector2 targetPosition;
 	bool targetAquired;
-
-	bool shouldChase;
+	int randomIndexNumber;
 
 	Vector2 distractorPosition;
 public:
 	void setupBehaviourTree(Level* level) override;
 	void sense(Level* level) override;
+	void sense(Level* level, std::list<CollectableSquare>& squares);
 	void decide() override;
 	void act(Level* level);
 	void draw() override;
-	bool detectDistractor(Agent* agent, Level* level);
+	bool findPatrolPoint(Agent* agent, Level* level);
+	bool moveToPatrolPoint(Agent* agent);
+	bool detectDistractorCloseToCollector(Agent* agent, Level* level);
 	bool chaseAwayDistractor(Agent* agent);
 };
 
@@ -165,20 +188,17 @@ class DistractorCircle : public Agent
 {
 	// Distractor
 	float speed = 50.0f;
-
+	
 	CollectableSquare* sqaureTarget;
 	CollectorTriangle* triangleTarget;
 
 	Vector2 distractionTarget;
 	bool agentInSight;
-
 	int agent;
-
 	Vector2 targetPosition;
 	bool targetAquired;
-
-	bool shouldDistract;
-
+	bool isChasing;
+	bool isFlanking;
 	Vector2 guardianPosition;
 public:
 	void setupBehaviourTree(Level* level) override;

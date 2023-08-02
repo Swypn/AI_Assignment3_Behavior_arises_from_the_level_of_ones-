@@ -102,14 +102,15 @@ void CollectorTriangle::sense(Level* level, std::list<CollectableSquare>& square
 
 void CollectorTriangle::decide()
 {
-	behaviorTree->execute(this);
+	//behaviorTree->execute(this);
 }
 
 void CollectorTriangle::act(Level* level)
 {
 	if (targetAquired) {
 		moveToItem(this);
-	} else if(!targetAquired)
+	}
+	else if(!targetAquired)
 	{
 		evadeDistractor(this);
 	}
@@ -266,7 +267,7 @@ void GuardianRectangle::setupBehaviourTree(Level* level)
 	SequenceNode* protectCollectorSequence = new SequenceNode();
 
 	ActionNode* detectDistractorNode = new ActionNode([this, level](Agent* agent) {
-		return this->detectDistractor(agent, level);
+		return this->detectDistractorCloseToCollector(agent, level);
 		});
 
 	ActionNode* chaseAwayDistractorNode = new ActionNode([this](Agent* agent) {
@@ -276,8 +277,22 @@ void GuardianRectangle::setupBehaviourTree(Level* level)
 	protectCollectorSequence->addChild(detectDistractorNode);
 	protectCollectorSequence->addChild(chaseAwayDistractorNode);
 
+
+	SequenceNode* patrolSequence = new SequenceNode();
+
+	ActionNode* findPatrolPointNode = new ActionNode([this, level ](Agent* agent) {
+		return this->findPatrolPoint(agent, level);
+		});
+	ActionNode* moveToPatrolPointNode = new ActionNode([this](Agent* agent) {
+		return this->moveToPatrolPoint(agent);
+		});
+
+	patrolSequence->addChild(findPatrolPointNode);
+	patrolSequence->addChild(moveToPatrolPointNode);
+
 	rootNode->addChild(protectCollectorSequence);
-	
+	rootNode->addChild(patrolSequence);
+
 	this->behaviorTree = rootNode;
 }
 
@@ -286,16 +301,39 @@ void GuardianRectangle::sense(Level* level)
 
 }
 
+void GuardianRectangle::sense(Level* level, std::list<CollectableSquare>& squares)
+{
+	for (auto& circle : level->circle_agents) {
+		float distance = Vector2Distance(position1, circle.position1);
+		if (distance < maxDetectionDistance) { // Change this value to adjust the detection radius
+			distractorPosition = circle.position1;
+			intruderInSight = true;
+			return;
+		}
+	}
+	intruderInSight = false;
+	//targetAquired = false;
+
+	// If no distractor is near, find a patrol point
+	if (!intruderInSight && !targetAquired) {
+		findPatrolPoint(this, level);
+	}
+}
+
 void GuardianRectangle::decide()
 {
-	//behaviorTree->execute(this);
+	behaviorTree->execute(this);
 }
 
 void GuardianRectangle::act(Level* level)
 {
-	if(targetAquired)
+	if(intruderInSight)
 	{
 		chaseAwayDistractor(this);
+	} 
+	else if(targetAquired)
+	{
+		moveToPatrolPoint(this);
 	}
 }
 
@@ -304,24 +342,61 @@ void GuardianRectangle::draw()
 	DrawRectangle(position1.x, position1.y, size.x, size.y, BLUE);
 }
 
-bool GuardianRectangle::detectDistractor(Agent* agent, Level* level)
+bool GuardianRectangle::findPatrolPoint(Agent* agent, Level* level)
+{
+	if (level->square_agents.empty()) {
+		targetAquired = false;
+		return false;
+	}
+
+	if(!targetAquired)
+	{
+		randomIndexNumber = rand() % level->square_agents.size();
+	}
+
+	auto it = std::next(level->square_agents.begin(), randomIndexNumber);
+	targetPosition = it->position1;
+	targetAquired = true;
+
+	return true;
+}
+
+bool GuardianRectangle::moveToPatrolPoint(Agent* agent)
+{
+	if (!targetAquired) {
+		return false;
+	}
+
+	if (Vector2Length(Vector2Subtract(position1, targetPosition)) < 10.0f) {
+		targetAquired = false;
+		return false;
+	}
+
+	Vector2 direction = Vector2Normalize(Vector2Subtract(targetPosition, position1));
+	Vector2 newPosition = Vector2Add(position1, Vector2Scale(direction, speed * GetFrameTime()));
+	position1 = newPosition;
+
+	return true;
+}
+
+bool GuardianRectangle::detectDistractorCloseToCollector(Agent* agent, Level* level)
 {
 	for (auto& circle : level->circle_agents) {
 		float distance = Vector2Distance(position1, circle.position1);
-		if (distance < 1000.0f) { // Change this value to adjust the detection radius
+		if (distance < maxDetectionDistance) { // Change this value to adjust the detection radius
 			distractorPosition = circle.position1;
-			targetAquired = true;
+			intruderInSight = true;
 			return true;
 		}
 	}
 
-	targetAquired = false;
+	intruderInSight = false;
 	return false;
 }
 
 bool GuardianRectangle::chaseAwayDistractor(Agent* agent)
 {
-	if (Vector2Length(Vector2Subtract(position1, distractorPosition)) < 1000.0f)
+	if (Vector2Length(Vector2Subtract(position1, distractorPosition)) < maxDetectionDistance)
 	{
 		Vector2 chaseDirection = Vector2Normalize(Vector2Subtract(distractorPosition, position1));
 		Vector2 newPosition = Vector2Add(position1, Vector2Scale(chaseDirection, speed * GetFrameTime()));
@@ -366,7 +441,6 @@ void DistractorCircle::setupBehaviourTree(Level* level)
 	moveBetweenSequence->addChild(moveBetweenCollectorAndSquareNode);
 
 	// chase triangle
-
 	SequenceNode* chaseCollectorSequence = new SequenceNode();
 
 	ActionNode* checkCollectorCloseNode = new ActionNode([this, level](Agent* agent)
@@ -374,8 +448,21 @@ void DistractorCircle::setupBehaviourTree(Level* level)
 			return this->shouldChaseCollector(agent, level);
 		});
 
+	ActionNode* chaseCollectorNode = new ActionNode([this](Agent* agent)
+		{
+			return this->chaseCollector(agent);
+		});
+
+	chaseCollectorSequence->addChild(checkCollectorCloseNode);
+	chaseCollectorSequence->addChild(chaseCollectorNode);
+
+	RandomSelectorNode* chaseOrFlankSelector = new RandomSelectorNode(5.0);
+	
+	chaseOrFlankSelector->addChild(moveBetweenSequence);
+	chaseOrFlankSelector->addChild(chaseCollectorSequence);
+	
 	rootNode->addChild(avoidGuardianSequence);
-	rootNode->addChild(moveBetweenSequence);
+	rootNode->addChild(chaseOrFlankSelector);
 
 	this->behaviorTree = rootNode;
 }
@@ -386,14 +473,18 @@ void DistractorCircle::sense(Level* level)
 
 void DistractorCircle::decide()
 {
-	behaviorTree->execute(this);
+	//behaviorTree->execute(this);
 }
 
 void DistractorCircle::act(Level* level)
 {
-	if(targetAquired)
+	if(targetAquired && isFlanking)
 	{
 		moveBetweenCollectorAndSquare(this);
+	}
+	else if(targetAquired && isChasing)
+	{
+		chaseCollector(this);
 	}
 	else if (!targetAquired)
 	{
@@ -417,11 +508,15 @@ bool DistractorCircle::isCollectorNearSquare(Agent* agent, Level* level)
 				sqaureTarget = &collectableSquare;
 				triangleTarget = &collectorTriangle;
 				targetAquired = true;
+				isFlanking = true;
+				isChasing = false;
 				return true;
 			}
 		}
 	}
 	targetAquired = false;
+	isFlanking = false;
+	isChasing = false;
 	return false;
 }
 
@@ -440,12 +535,34 @@ bool DistractorCircle::moveBetweenCollectorAndSquare(Agent* agent)
 bool DistractorCircle::shouldChaseCollector(Agent* agent, Level* level)
 {
 
-	return false;
+	float closestTriangleDistance = std::numeric_limits<float>::max();
+	CollectorTriangle* closestTriangle = nullptr;
+	for (CollectorTriangle& triangle : level->triangle_agents)
+	{
+		float distance = Vector2Distance(this->position1, triangle.position1);
+		if (distance < closestTriangleDistance)
+		{
+			closestTriangleDistance = distance;
+			closestTriangle = &triangle;
+
+		}
+	}
+	this->triangleTarget = closestTriangle ? closestTriangle : nullptr;
+	// Start chasing if a CollectorTriangle is within a certain distance
+	return closestTriangleDistance < 100.0f; // Adjust this value to your needs
 }
 
 bool DistractorCircle::chaseCollector(Agent* agent)
 {
-
+	if (triangleTarget) {
+		Vector2 direction = Vector2Normalize(Vector2Subtract(triangleTarget->position1, position1));
+		position1 = Vector2Add(position1, Vector2Scale(direction, speed * GetFrameTime()));
+		isChasing = true;
+		isFlanking = false;
+		return true;
+	}
+	isFlanking = false;
+	isChasing = false;
 	return false;
 }
 
@@ -474,7 +591,6 @@ bool DistractorCircle::evadeGuardian(Agent* agent)
 	}
 	return false;
 }
-
 
 Agent* Level::get_agent(int id)
 {
@@ -578,11 +694,12 @@ void Level::reset()
 	triangle->position1 = { 100, 200 };
 	triangle->position2 = {150, 200};
 	triangle->position3 = { 125, 150 };
+	triangle->center = { 600, 200 };
 	triangle->size = {50, 50};
 	triangle->setupBehaviourTree(this);
 
 	auto rectangle = spawn_agent(GuardianRectangle());
-	rectangle->position1 = { 200, 200 };
+	rectangle->position1 = { 10, 300 };
 	rectangle->size = { 50, 50 };
 	rectangle->setupBehaviourTree(this);
 
