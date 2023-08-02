@@ -102,7 +102,7 @@ void CollectorTriangle::sense(Level* level, std::list<CollectableSquare>& square
 
 void CollectorTriangle::decide()
 {
-	//behaviorTree->execute(this);
+	behaviorTree->execute(this);
 }
 
 void CollectorTriangle::act(Level* level)
@@ -283,8 +283,8 @@ void GuardianRectangle::setupBehaviourTree(Level* level)
 	ActionNode* findPatrolPointNode = new ActionNode([this, level ](Agent* agent) {
 		return this->findPatrolPoint(agent, level);
 		});
-	ActionNode* moveToPatrolPointNode = new ActionNode([this](Agent* agent) {
-		return this->moveToPatrolPoint(agent);
+	ActionNode* moveToPatrolPointNode = new ActionNode([this, level](Agent* agent) {
+		return this->moveToPatrolPoint(agent, level);
 		});
 
 	patrolSequence->addChild(findPatrolPointNode);
@@ -333,7 +333,7 @@ void GuardianRectangle::act(Level* level)
 	} 
 	else if(targetAquired)
 	{
-		moveToPatrolPoint(this);
+		moveToPatrolPoint(this, level);
 	}
 }
 
@@ -355,15 +355,17 @@ bool GuardianRectangle::findPatrolPoint(Agent* agent, Level* level)
 	}
 
 	auto it = std::next(level->square_agents.begin(), randomIndexNumber);
+
 	targetPosition = it->position1;
 	targetAquired = true;
 
 	return true;
 }
 
-bool GuardianRectangle::moveToPatrolPoint(Agent* agent)
+bool GuardianRectangle::moveToPatrolPoint(Agent* agent, Level* level)
 {
-	if (!targetAquired) {
+	if (!targetAquired || randomIndexNumber >= level->square_agents.size()) {
+		targetAquired = false;
 		return false;
 	}
 
@@ -382,11 +384,14 @@ bool GuardianRectangle::moveToPatrolPoint(Agent* agent)
 bool GuardianRectangle::detectDistractorCloseToCollector(Agent* agent, Level* level)
 {
 	for (auto& circle : level->circle_agents) {
-		float distance = Vector2Distance(position1, circle.position1);
-		if (distance < maxDetectionDistance) { // Change this value to adjust the detection radius
-			distractorPosition = circle.position1;
-			intruderInSight = true;
-			return true;
+		for(auto& triangle : level->triangle_agents)
+		{
+			float distance = Vector2Distance(triangle.position1, circle.position1);
+			if (distance < maxDetectionDistance) { // Change this value to adjust the detection radius
+				distractorPosition = circle.position1;
+				intruderInSight = true;
+				return true;
+			}
 		}
 	}
 
@@ -396,7 +401,7 @@ bool GuardianRectangle::detectDistractorCloseToCollector(Agent* agent, Level* le
 
 bool GuardianRectangle::chaseAwayDistractor(Agent* agent)
 {
-	if (Vector2Length(Vector2Subtract(position1, distractorPosition)) < maxDetectionDistance)
+	if (Vector2Length(Vector2Subtract(position1, distractorPosition)))
 	{
 		Vector2 chaseDirection = Vector2Normalize(Vector2Subtract(distractorPosition, position1));
 		Vector2 newPosition = Vector2Add(position1, Vector2Scale(chaseDirection, speed * GetFrameTime()));
@@ -473,7 +478,7 @@ void DistractorCircle::sense(Level* level)
 
 void DistractorCircle::decide()
 {
-	//behaviorTree->execute(this);
+	behaviorTree->execute(this);
 }
 
 void DistractorCircle::act(Level* level)

@@ -179,7 +179,7 @@ public:
 	void act(Level* level);
 	void draw() override;
 	bool findPatrolPoint(Agent* agent, Level* level);
-	bool moveToPatrolPoint(Agent* agent);
+	bool moveToPatrolPoint(Agent* agent, Level* level);
 	bool detectDistractorCloseToCollector(Agent* agent, Level* level);
 	bool chaseAwayDistractor(Agent* agent);
 };
