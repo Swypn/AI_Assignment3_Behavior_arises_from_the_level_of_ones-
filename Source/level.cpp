@@ -5,6 +5,37 @@
 
 void CollectableSquare::setupBehaviourTree(Level* level)
 {
+	SelectorNode* rootNode = new SelectorNode();
+	
+	SequenceNode* towardsGuardianSequence = new SequenceNode();
+
+	ActionNode* detectGuardianNode = new ActionNode([this, level](Agent* agent) {
+		return this->isGuardianNear(agent, level);
+		});
+
+	ActionNode* movetowardsNode = new ActionNode([this](Agent* agent) {
+		return this->goTowardsGuardian(agent);
+		});
+
+	towardsGuardianSequence->addChild(detectGuardianNode);
+	towardsGuardianSequence->addChild(movetowardsNode);
+
+	SequenceNode* moveAwayFromDistractorSequence = new SequenceNode();
+	ActionNode* detectDistractorNode = new ActionNode([this, level](Agent* agent) {
+		return this->isDistractorNear(agent, level);
+		});
+
+	ActionNode* moveAwayFromDistractorNode = new ActionNode([this](Agent* agent) {
+		return this->moveAway(agent);
+		});
+
+	moveAwayFromDistractorSequence->addChild(detectDistractorNode);
+	moveAwayFromDistractorSequence->addChild(moveAwayFromDistractorNode);
+
+	rootNode->addChild(towardsGuardianSequence);
+	rootNode->addChild(moveAwayFromDistractorSequence);
+
+	this->behaviorTree = rootNode;
 }
 
 void CollectableSquare::sense(Level* level)
@@ -13,11 +44,21 @@ void CollectableSquare::sense(Level* level)
 
 void CollectableSquare::decide()
 {
-
+	behaviorTree->execute(this);
 }
 
 void CollectableSquare::act(Level* level)
 {
+
+	if(isGuardianClose)
+	{
+		goTowardsGuardian(this);
+	}
+	else if(isDistractorClose)
+	{
+		moveAway(this);
+	}
+
 	if(collected)
 	{
 		level->score++;
@@ -27,7 +68,55 @@ void CollectableSquare::act(Level* level)
 
 void CollectableSquare::draw()
 {
-	DrawRectangle(position1.x, position1.y, size.x, size.y, BLACK);
+	DrawRectangle((int)position1.x, (int)position1.y, (int)size.x, (int)size.y, BLACK);
+}
+
+bool CollectableSquare::isDistractorNear(Agent* agent, Level* level)
+{
+	for (auto& circle : level->circle_agents) {
+		float distance = Vector2Distance(this->position1, circle.position1);
+		if (distance < 100.0f) { // adjust this value to your needs
+			this->distractorPosition = circle.position1;
+			this->isDistractorClose = true;
+			return true;
+		}
+	}
+	this->isDistractorClose = false;
+	return false;
+}
+
+bool CollectableSquare::moveAway(Agent* level)
+{
+	if (isDistractorClose) {
+		Vector2 direction = Vector2Normalize(Vector2Subtract(position1, distractorPosition));
+		position1 = Vector2Add(position1, Vector2Scale(direction, speed * GetFrameTime()));
+		return true;
+	}
+	return false;
+}
+
+bool CollectableSquare::isGuardianNear(Agent* agent, Level* level)
+{
+	for (auto& rectangle : level->rectangle_agents) {
+		float distance = Vector2Distance(rectangle.position1, this->position1);
+		if (distance < 1000.0f) { // adjust this value to your needs
+			this->guardianPosition = rectangle.position1;
+			this->isGuardianClose = true;
+			return true;
+		}
+	}
+	this->isGuardianClose = false;
+	return false;
+}
+
+bool CollectableSquare::goTowardsGuardian(Agent* level)
+{
+	if (isGuardianClose) {
+		Vector2 direction = Vector2Normalize(Vector2Subtract(guardianPosition, position1));
+		position1 = Vector2Add(position1, Vector2Scale(direction, speed * GetFrameTime()));
+		return true;
+	}
+	return false;
 }
 
 
@@ -182,17 +271,17 @@ bool CollectorTriangle::moveToItem(Agent* agent)
 
 		// bounds checking here
 		if (newPosition.x < 0) newPosition.x = 0;
-		else if (newPosition.x > GetScreenWidth()) newPosition.x = GetScreenWidth();
+		else if (newPosition.x > (float)GetScreenWidth()) newPosition.x = (float)GetScreenWidth();
 
 		if (newPosition.y < 0) newPosition.y = 0;
-		else if (newPosition.y > GetScreenHeight()) newPosition.y = GetScreenHeight();
+		else if (newPosition.y > (float)GetScreenHeight()) newPosition.y = (float)GetScreenHeight();
 
 		center = newPosition;
 
 		// update vertices after center
-		position1 = { center.x, center.y - size.y / 2 };
-		position2 = { center.x - size.x / 2, center.y + size.y / 2 };
-		position3 = { center.x + size.x / 2, center.y + size.y / 2 };
+		position1 = { center.x, center.y - size.y / 2.0f };
+		position2 = { center.x - size.x / 2.0f, center.y + size.y / 2.0f };
+		position3 = { center.x + size.x / 2.0f, center.y + size.y / 2.0f };
 	}
 	return targetAquired;
 }
@@ -203,7 +292,7 @@ bool CollectorTriangle::detectDistractor(Agent* agent, Level* level)
 
 	for (auto& circle : level->circle_agents) {
 		float distance = Vector2Distance(center, circle.position1);
-		if (distance < 100.0f) { // Change this value to adjust the detection radius
+		if (distance < 50.0f) { // Change this value to adjust the detection radius
 			distractorPosition = circle.position1;
 			distractorNearby = true;
 			break;
@@ -339,7 +428,7 @@ void GuardianRectangle::act(Level* level)
 
 void GuardianRectangle::draw()
 {
-	DrawRectangle(position1.x, position1.y, size.x, size.y, BLUE);
+	DrawRectangle((int)position1.x, (int)position1.y, (int)size.x, (int)size.y, BLUE);
 }
 
 bool GuardianRectangle::findPatrolPoint(Agent* agent, Level* level)
@@ -406,6 +495,7 @@ bool GuardianRectangle::chaseAwayDistractor(Agent* agent)
 		Vector2 chaseDirection = Vector2Normalize(Vector2Subtract(distractorPosition, position1));
 		Vector2 newPosition = Vector2Add(position1, Vector2Scale(chaseDirection, speed * GetFrameTime()));
 		position1 = newPosition;
+		targetAquired = false;
 		return true;
 	}
 	return false;
@@ -499,7 +589,7 @@ void DistractorCircle::act(Level* level)
 
 void DistractorCircle::draw()
 {
-	DrawCircle(position1.x, position1.y, radius, RED);
+	DrawCircle((int)position1.x, (int)position1.y, radius, RED);
 }
 
 bool DistractorCircle::isCollectorNearSquare(Agent* agent, Level* level)
@@ -692,8 +782,8 @@ void Level::remove_dead_and_add_pending_agents()
 void Level::reset()
 {
 	int squareCount = 10;
-
-	setupCollectableSquares(squareCount);
+	
+	setupCollectableSquares(squareCount, this);
 
 	auto triangle = spawn_agent(CollectorTriangle());
 	triangle->position1 = { 100, 200 };
@@ -783,7 +873,7 @@ void Level::update()
 			// reset position or any other properties
 		}
 		int squareCount = 10;
-		setupCollectableSquares(squareCount);
+		setupCollectableSquares(squareCount, this);
 	}
 }
 
@@ -815,7 +905,7 @@ void Level::draw()
 	DrawText(scoreString.c_str(), 10, 10, 20, PURPLE);
 }
 
-void Level::setupCollectableSquares(int count)
+void Level::setupCollectableSquares(int count, Level* level)
 {
 	std::srand(std::time(nullptr));
 
@@ -823,6 +913,7 @@ void Level::setupCollectableSquares(int count)
 		CollectableSquare square;
 		square.position1 = { static_cast<float>(std::rand() % GetScreenWidth()), static_cast<float>(std::rand() % GetScreenHeight()) }; // Random position
 		square.size = { 25, 25 }; // Fixed size for example, you can randomize this as well
+		square.setupBehaviourTree(level);
 		spawn_agent(square);
 	}
 }

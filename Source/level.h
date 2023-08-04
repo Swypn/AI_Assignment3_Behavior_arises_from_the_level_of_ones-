@@ -118,6 +118,12 @@ public:
 
 class CollectableSquare : public Agent
 {
+	float speed = 50.0f;
+	bool isDistractorClose = false;
+	bool isGuardianClose = false;
+	Vector2 distractorPosition = {0.0f, 0.0f};
+	Vector2 guardianPosition = { 0.0f, 0.0f };
+
 public:
 	bool collected = false;
 
@@ -126,6 +132,10 @@ public:
 	void decide() override;
 	void act(Level* level) override;
 	void draw() override;
+	bool isDistractorNear(Agent* agent, Level* level);
+	bool moveAway(Agent* level);
+	bool isGuardianNear(Agent* agent, Level* level);
+	bool goTowardsGuardian(Agent* level);
 };
 
 class CollectorTriangle : public Agent 
@@ -189,17 +199,17 @@ class DistractorCircle : public Agent
 	// Distractor
 	float speed = 50.0f;
 	
-	CollectableSquare* sqaureTarget;
-	CollectorTriangle* triangleTarget;
+	CollectableSquare* sqaureTarget = nullptr;
+	CollectorTriangle* triangleTarget = nullptr;
 
-	Vector2 distractionTarget;
-	bool agentInSight;
-	int agent;
-	Vector2 targetPosition;
-	bool targetAquired;
-	bool isChasing;
-	bool isFlanking;
-	Vector2 guardianPosition;
+	Vector2 distractionTarget = {0.0f};
+	bool agentInSight = false;
+	int agent = 0;
+	Vector2 targetPosition = {0.0f};
+	bool targetAquired  = false;
+	bool isChasing = false;
+	bool isFlanking = false;
+	Vector2 guardianPosition = {0.0f};
 public:
 	void setupBehaviourTree(Level* level) override;
 	void sense(Level* level) override;
@@ -245,7 +255,7 @@ public:
 	void update();
 	void draw();
 
-	void setupCollectableSquares(int count);
+	void setupCollectableSquares(int count, Level* level);
 private:
 	void remove_dead_and_add_pending_agents();
 	// Remember, if you add more lists (see @AddMoreHere), edit this function so that dead agents are removed correctly without leaking memory
