@@ -170,17 +170,18 @@ class GuardianRectangle : public Agent
 {
 	// Guardian
 	float speed = 50.0f;
-	float maxDetectionDistance = 100.0f;
+	float maxDetectionDistance = 120.0f;
 	Vector2 patrolArea;
 	bool intruderInSight;
-
 	int intruder;
-
 	Vector2 targetPosition;
 	bool targetAquired;
 	int randomIndexNumber;
-
 	Vector2 distractorPosition;
+	float chaseTimer = 0.0f;
+	bool isChasing = false;
+	const float MAX_CHASE_TIME = 3.0f;
+
 public:
 	void setupBehaviourTree(Level* level) override;
 	void sense(Level* level) override;
@@ -197,7 +198,7 @@ public:
 class DistractorCircle : public Agent
 {
 	// Distractor
-	float speed = 50.0f;
+	float speed = 100.0f;
 	
 	CollectableSquare* sqaureTarget = nullptr;
 	CollectorTriangle* triangleTarget = nullptr;

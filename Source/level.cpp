@@ -44,7 +44,7 @@ void CollectableSquare::sense(Level* level)
 
 void CollectableSquare::decide()
 {
-	behaviorTree->execute(this);
+	//behaviorTree->execute(this);
 }
 
 void CollectableSquare::act(Level* level)
@@ -292,7 +292,7 @@ bool CollectorTriangle::detectDistractor(Agent* agent, Level* level)
 
 	for (auto& circle : level->circle_agents) {
 		float distance = Vector2Distance(center, circle.position1);
-		if (distance < 50.0f) { // Change this value to adjust the detection radius
+		if (distance < 75.0f) { // Change this value to adjust the detection radius
 			distractorPosition = circle.position1;
 			distractorNearby = true;
 			break;
@@ -472,6 +472,7 @@ bool GuardianRectangle::moveToPatrolPoint(Agent* agent, Level* level)
 
 bool GuardianRectangle::detectDistractorCloseToCollector(Agent* agent, Level* level)
 {
+
 	for (auto& circle : level->circle_agents) {
 		for(auto& triangle : level->triangle_agents)
 		{
@@ -479,12 +480,15 @@ bool GuardianRectangle::detectDistractorCloseToCollector(Agent* agent, Level* le
 			if (distance < maxDetectionDistance) { // Change this value to adjust the detection radius
 				distractorPosition = circle.position1;
 				intruderInSight = true;
+				speed = 150.0f;
 				return true;
 			}
 		}
 	}
-
+	speed = 75.0f;
 	intruderInSight = false;
+	isChasing = false;
+
 	return false;
 }
 
@@ -668,10 +672,11 @@ bool DistractorCircle::detectGuardian(Agent* agent, Level* level)
 		if (distance < 200.0f) { // Change this value to adjust the detection radius
 			guardianPosition = rectangle.position1;
 			targetAquired = false;
+			speed = 150.0f;
 			return true;
 		}
 	}
-	
+	speed = 100.0f;
 	return false;
 }
 
