@@ -98,32 +98,41 @@ public:
 	static constexpr float MAX_ENERGY = 10;
 	float energy = MAX_ENERGY;
 	BehaviorNode* behaviorTree;
-	int id           = 0;
+	int id            = 0;
 	Vector2 position1 = {};
 	Vector2 position2 = {};
 	Vector2 position3 = {};
-	Vector2 size = {};
-	Vector2 center = {0, 0};
-	float radius;
-	bool dead        = false;
+	Vector2 size      = {};
+	Vector2 center    = {0, 0};
+	float radius	  = 0.0f;
+	bool dead         = false;
 
 	virtual void sense(Level* level)  = 0;
 	virtual void decide() = 0;
 	virtual void act(Level* level)    = 0;
 	virtual void setupBehaviourTree(Level* level) = 0;
 	virtual void draw()   = 0;
-
+	virtual void applyEffect() = 0;
+	virtual void endEffect() = 0;
 	virtual ~Agent() = default;
+};
+
+class PowerUpSqaure : public Agent
+{
+public:
+	bool collected = false;
+
+	void setupBehaviourTree(Level* level) override;
+	void sense(Level* level) override;
+	void decide() override;
+	void act(Level* level) override;
+	void applyEffect() override;
+	void endEffect() override;
+	void draw() override;
 };
 
 class CollectableSquare : public Agent
 {
-	float speed = 50.0f;
-	bool isDistractorClose = false;
-	bool isGuardianClose = false;
-	Vector2 distractorPosition = {0.0f, 0.0f};
-	Vector2 guardianPosition = { 0.0f, 0.0f };
-
 public:
 	bool collected = false;
 
@@ -132,24 +141,26 @@ public:
 	void decide() override;
 	void act(Level* level) override;
 	void draw() override;
-	bool isDistractorNear(Agent* agent, Level* level);
-	bool moveAway(Agent* level);
-	bool isGuardianNear(Agent* agent, Level* level);
-	bool goTowardsGuardian(Agent* level);
+	void applyEffect() override;
+	void endEffect() override;
 };
 
 class CollectorTriangle : public Agent 
 {
 	// Collector
 	float speed = 100.0f;
+	float defualtSpeed = 100.0f;
 	float orientation = 0.0f;
 	Vector2 itemPosition;
 	bool itemInSight;
 	int item;
 	Vector2 targetPosition;
-	bool targetAquired;
-	bool shouldCollect;
+	bool targetAquired = false;
+	bool shouldCollect = false;
 	Vector2 distractorPosition;
+	bool isPowerUpCollected = false;
+	Vector2 powerUpPosition;
+	PowerUpSqaure* powerUpSqaure = nullptr;
 public:
 	void setupBehaviourTree(Level* level) override;
 	void sense(Level* level) override;
@@ -157,11 +168,15 @@ public:
 	void decide() override;
 	void act(Level* level);
 	void draw() override;
+	void applyEffect() override;
+	void endEffect() override;
 	bool searchForItem(Agent* agent, Level* level); 
 	Vector2 findNewTarget(Agent* agent, Level* level);
 	bool moveToItem(Agent* agent);
 	bool detectDistractor(Agent* agent, Level* level);
 	bool evadeDistractor(Agent* agent);
+	bool searchForPowerUp(Agent* agent, Level* level);
+	bool moveToPowerUp(Agent* agent);
 	Vector2 Vector2Rotate(Vector2 point, float rad);
 	Vector2 Vector2Lerp(Vector2 a, Vector2 b, float t);
 };
@@ -189,10 +204,14 @@ public:
 	void decide() override;
 	void act(Level* level);
 	void draw() override;
+	void applyEffect() override;
+	void endEffect() override;
 	bool findPatrolPoint(Agent* agent, Level* level);
 	bool moveToPatrolPoint(Agent* agent, Level* level);
 	bool detectDistractorCloseToCollector(Agent* agent, Level* level);
 	bool chaseAwayDistractor(Agent* agent);
+	void isStunned();
+	void setPosition(float positionX, float positionY);
 };
 
 class DistractorCircle : public Agent
@@ -217,6 +236,8 @@ public:
 	void decide() override;
 	void act(Level* level);
 	void draw() override;
+	void applyEffect() override;
+	void endEffect() override;
 	bool isCollectorNearSquare(Agent* agent, Level* level);
 	bool moveBetweenCollectorAndSquare(Agent* agent);
 	bool shouldChaseCollector(Agent* agent, Level* level);
@@ -240,13 +261,15 @@ class Level
 
 public:
 	//NOTE(Filippo): Using a list here is not the best idea, ideally you should store agents in some other data structure that keeps them close to each other while being pointer-stable.
-	std::list<CollectableSquare> square_agents;
+	std::list<PowerUpSqaure> powerUp_agents;
+	std::list<CollectableSquare> collectableSquare_agents;
 	std::list<CollectorTriangle> triangle_agents;
 	std::list<GuardianRectangle> rectangle_agents;
 	std::list<DistractorCircle> circle_agents;
 	int score;
 	Agent* get_agent(int id);
 
+	Agent* spawn_agent(PowerUpSqaure agent);
 	Agent* spawn_agent(CollectableSquare agent);
 	Agent* spawn_agent(CollectorTriangle agent);
 	Agent* spawn_agent(GuardianRectangle agent);
@@ -256,7 +279,8 @@ public:
 	void update();
 	void draw();
 
-	void setupCollectableSquares(int count, Level* level);
+	void spawnCollectableSquares(int count, Level* level);
+	void spawnPowerUps(int count, Level* level);
 private:
 	void remove_dead_and_add_pending_agents();
 	// Remember, if you add more lists (see @AddMoreHere), edit this function so that dead agents are removed correctly without leaking memory

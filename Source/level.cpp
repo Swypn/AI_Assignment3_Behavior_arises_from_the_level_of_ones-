@@ -3,39 +3,45 @@
 #include <string>
 #include <iostream>
 
+
+void PowerUpSqaure::setupBehaviourTree(Level* level)
+{
+}
+
+void PowerUpSqaure::sense(Level* level)
+{
+}
+
+void PowerUpSqaure::decide()
+{
+}
+
+void PowerUpSqaure::act(Level* level)
+{
+	if (collected)
+	{
+		std::cout << "power up is dead" << std::endl;
+		dead = true;
+	}
+}
+
+void PowerUpSqaure::applyEffect()
+{
+}
+
+void PowerUpSqaure::endEffect()
+{
+}
+
+void PowerUpSqaure::draw()
+{
+	DrawRectangle((int)position1.x, (int)position1.y, (int)size.x, (int)size.y, ORANGE);
+}
+
+
 void CollectableSquare::setupBehaviourTree(Level* level)
 {
-	SelectorNode* rootNode = new SelectorNode();
-	
-	SequenceNode* towardsGuardianSequence = new SequenceNode();
 
-	ActionNode* detectGuardianNode = new ActionNode([this, level](Agent* agent) {
-		return this->isGuardianNear(agent, level);
-		});
-
-	ActionNode* movetowardsNode = new ActionNode([this](Agent* agent) {
-		return this->goTowardsGuardian(agent);
-		});
-
-	towardsGuardianSequence->addChild(detectGuardianNode);
-	towardsGuardianSequence->addChild(movetowardsNode);
-
-	SequenceNode* moveAwayFromDistractorSequence = new SequenceNode();
-	ActionNode* detectDistractorNode = new ActionNode([this, level](Agent* agent) {
-		return this->isDistractorNear(agent, level);
-		});
-
-	ActionNode* moveAwayFromDistractorNode = new ActionNode([this](Agent* agent) {
-		return this->moveAway(agent);
-		});
-
-	moveAwayFromDistractorSequence->addChild(detectDistractorNode);
-	moveAwayFromDistractorSequence->addChild(moveAwayFromDistractorNode);
-
-	rootNode->addChild(towardsGuardianSequence);
-	rootNode->addChild(moveAwayFromDistractorSequence);
-
-	this->behaviorTree = rootNode;
 }
 
 void CollectableSquare::sense(Level* level)
@@ -44,21 +50,11 @@ void CollectableSquare::sense(Level* level)
 
 void CollectableSquare::decide()
 {
-	//behaviorTree->execute(this);
+
 }
 
 void CollectableSquare::act(Level* level)
 {
-
-	if(isGuardianClose)
-	{
-		goTowardsGuardian(this);
-	}
-	else if(isDistractorClose)
-	{
-		moveAway(this);
-	}
-
 	if(collected)
 	{
 		level->score++;
@@ -71,58 +67,32 @@ void CollectableSquare::draw()
 	DrawRectangle((int)position1.x, (int)position1.y, (int)size.x, (int)size.y, BLACK);
 }
 
-bool CollectableSquare::isDistractorNear(Agent* agent, Level* level)
+void CollectableSquare::applyEffect()
 {
-	for (auto& circle : level->circle_agents) {
-		float distance = Vector2Distance(this->position1, circle.position1);
-		if (distance < 100.0f) { // adjust this value to your needs
-			this->distractorPosition = circle.position1;
-			this->isDistractorClose = true;
-			return true;
-		}
-	}
-	this->isDistractorClose = false;
-	return false;
 }
 
-bool CollectableSquare::moveAway(Agent* level)
+void CollectableSquare::endEffect()
 {
-	if (isDistractorClose) {
-		Vector2 direction = Vector2Normalize(Vector2Subtract(position1, distractorPosition));
-		position1 = Vector2Add(position1, Vector2Scale(direction, speed * GetFrameTime()));
-		return true;
-	}
-	return false;
 }
-
-bool CollectableSquare::isGuardianNear(Agent* agent, Level* level)
-{
-	for (auto& rectangle : level->rectangle_agents) {
-		float distance = Vector2Distance(rectangle.position1, this->position1);
-		if (distance < 1000.0f) { // adjust this value to your needs
-			this->guardianPosition = rectangle.position1;
-			this->isGuardianClose = true;
-			return true;
-		}
-	}
-	this->isGuardianClose = false;
-	return false;
-}
-
-bool CollectableSquare::goTowardsGuardian(Agent* level)
-{
-	if (isGuardianClose) {
-		Vector2 direction = Vector2Normalize(Vector2Subtract(guardianPosition, position1));
-		position1 = Vector2Add(position1, Vector2Scale(direction, speed * GetFrameTime()));
-		return true;
-	}
-	return false;
-}
-
 
 void CollectorTriangle::setupBehaviourTree(Level* level)
 {
 	SelectorNode* rootNode = new SelectorNode();
+	
+	// Search and move to power up
+	SequenceNode* searchAndMoveToPowerUpSequence = new SequenceNode;
+
+	ActionNode* findPowerUp = new ActionNode([this, level](Agent* agent) {
+		return this->searchForPowerUp(agent, level);
+		});
+
+	ActionNode* moveToPowerUp = new ActionNode([this](Agent* agent){
+		return this->moveToPowerUp(this);
+		});
+
+	searchAndMoveToPowerUpSequence->addChild(findPowerUp);
+	searchAndMoveToPowerUpSequence->addChild(moveToPowerUp);
+
 	//Evade distractor sequence
 
 	SequenceNode* evadeDistractorSequence = new SequenceNode();
@@ -151,6 +121,9 @@ void CollectorTriangle::setupBehaviourTree(Level* level)
 	searchAndMoveToItemSequence->addChild(FindItem);
 	searchAndMoveToItemSequence->addChild(moveToItem);
 	
+	// Adding root order
+
+	rootNode->addChild(searchAndMoveToPowerUpSequence);
 	rootNode->addChild(evadeDistractorSequence);
 	rootNode->addChild(searchAndMoveToItemSequence);
 	
@@ -160,6 +133,7 @@ void CollectorTriangle::setupBehaviourTree(Level* level)
 void CollectorTriangle::sense(Level* level)
 {
 }
+
 
 void CollectorTriangle::sense(Level* level, std::list<CollectableSquare>& squares)
 {
@@ -179,7 +153,7 @@ void CollectorTriangle::sense(Level* level, std::list<CollectableSquare>& square
 
 		if (Vector2Distance(this->position1, square.position1) < 50.0) {
 			square.collected = true;
-			std::cout << "collected true" << std::endl;
+			std::cout << "collected score sqaure" << std::endl;
 			//score++;
 		}
 	}
@@ -187,6 +161,21 @@ void CollectorTriangle::sense(Level* level, std::list<CollectableSquare>& square
 	// Store closest square
 	this->itemPosition = closestSquare ? closestSquare->position1 : Vector2{};
 	this->itemInSight = closestSquare != nullptr;
+
+	// Find powerUp
+	for (auto& powerUp : level->powerUp_agents) {
+		float distance = Vector2Distance(center, powerUp.position1);
+		if (distance < 100.0f) { // This value determines how close the power-up should be to prioritize it
+			powerUpPosition = powerUp.position1;
+			powerUpSqaure = &powerUp;
+		}
+
+		if (Vector2Distance(this->position1, powerUp.position1) < 50.0) {
+			powerUp.collected = true;
+			std::cout << "collected powerUp" << std::endl;
+			//score++;
+		}
+	}
 }
 
 void CollectorTriangle::decide()
@@ -203,6 +192,11 @@ void CollectorTriangle::act(Level* level)
 	{
 		evadeDistractor(this);
 	}
+
+	if(isPowerUpCollected && powerUpSqaure)
+	{
+		powerUpSqaure->collected = true;
+	}
 }
 
 void CollectorTriangle::draw()
@@ -217,6 +211,16 @@ void CollectorTriangle::draw()
 	position3 = Vector2Rotate(position3, orientation);
 
 	DrawTriangle(position1, position2, position3, GOLD);
+}
+
+void CollectorTriangle::applyEffect()
+{
+	speed = 150.0f;
+}
+
+void CollectorTriangle::endEffect()
+{
+	speed = defualtSpeed;
 }
 
 bool CollectorTriangle::searchForItem(Agent* agent, Level* level)
@@ -249,7 +253,7 @@ Vector2 CollectorTriangle::findNewTarget(Agent* agent, Level* level)
 	Vector2 newTarget = itemPosition;
 	float maxDistance = Vector2Distance(itemPosition, distractorPosition);
 
-	for(auto& square : level->square_agents)
+	for(auto& square : level->collectableSquare_agents)
 	{
 		float distance = Vector2Distance(square.position1, distractorPosition);
 		if(distance > maxDistance)
@@ -323,6 +327,39 @@ bool CollectorTriangle::evadeDistractor(Agent* agent)
 		return true;
 	}
 	return false;
+}
+
+bool CollectorTriangle::searchForPowerUp(Agent* agent, Level* level)
+{
+	for (auto& powerUp : level->powerUp_agents) {
+		float distance = Vector2Distance(center, powerUp.position1);
+		if (distance < 200.0f) { // This value determines how close the power-up should be to prioritize it
+			powerUpPosition = powerUp.position1;
+			powerUpSqaure = &powerUp;
+			targetAquired = false;
+			return true; // Power-up found and within range
+		}
+	}
+	return false; // No power-up in range
+}
+
+bool CollectorTriangle::moveToPowerUp(Agent* agent)
+{
+	Vector2 direction = Vector2Subtract(powerUpPosition, center);
+	direction = Vector2Normalize(direction);
+	Vector2 newPosition = Vector2Add(center, Vector2Scale(direction, speed * GetFrameTime()));
+
+	// Check if the agent reached the power-up
+	if (Vector2Distance(newPosition, powerUpPosition) < 10.0f) { // 10.0f can be adjusted based on desired precision
+		isPowerUpCollected = true;
+		applyEffect(); // Apply the effect once the power-up is collected
+		return true; // Power-up successfully collected
+	}
+
+	// Update agent's position
+	center = newPosition;
+
+	return false; // Power-up not yet collected
 }
 
 Vector2 CollectorTriangle::Vector2Rotate(Vector2 point, float rad)
@@ -431,19 +468,29 @@ void GuardianRectangle::draw()
 	DrawRectangle((int)position1.x, (int)position1.y, (int)size.x, (int)size.y, BLUE);
 }
 
+void GuardianRectangle::applyEffect()
+{
+	size = {100, 100};
+}
+
+void GuardianRectangle::endEffect()
+{
+	size = { 50, 50 };
+}
+
 bool GuardianRectangle::findPatrolPoint(Agent* agent, Level* level)
 {
-	if (level->square_agents.empty()) {
+	if (level->collectableSquare_agents.empty()) {
 		targetAquired = false;
 		return false;
 	}
 
 	if(!targetAquired)
 	{
-		randomIndexNumber = rand() % level->square_agents.size();
+		randomIndexNumber = rand() % level->collectableSquare_agents.size();
 	}
 
-	auto it = std::next(level->square_agents.begin(), randomIndexNumber);
+	auto it = std::next(level->collectableSquare_agents.begin(), randomIndexNumber);
 
 	targetPosition = it->position1;
 	targetAquired = true;
@@ -453,7 +500,7 @@ bool GuardianRectangle::findPatrolPoint(Agent* agent, Level* level)
 
 bool GuardianRectangle::moveToPatrolPoint(Agent* agent, Level* level)
 {
-	if (!targetAquired || randomIndexNumber >= level->square_agents.size()) {
+	if (!targetAquired || randomIndexNumber >= level->collectableSquare_agents.size()) {
 		targetAquired = false;
 		return false;
 	}
@@ -503,6 +550,16 @@ bool GuardianRectangle::chaseAwayDistractor(Agent* agent)
 		return true;
 	}
 	return false;
+}
+
+void GuardianRectangle::isStunned()
+{
+}
+
+void GuardianRectangle::setPosition(float positionX, float positionY)
+{
+	position1.x = positionX;
+	position1.y = positionY;
 }
 
 void DistractorCircle::setupBehaviourTree(Level* level)
@@ -561,7 +618,7 @@ void DistractorCircle::setupBehaviourTree(Level* level)
 	chaseOrFlankSelector->addChild(chaseCollectorSequence);
 	
 	rootNode->addChild(avoidGuardianSequence);
-	rootNode->addChild(chaseOrFlankSelector);
+	rootNode->addChild(moveBetweenSequence);
 
 	this->behaviorTree = rootNode;
 }
@@ -596,11 +653,21 @@ void DistractorCircle::draw()
 	DrawCircle((int)position1.x, (int)position1.y, radius, RED);
 }
 
+void DistractorCircle::applyEffect()
+{
+	// stun guardian
+}
+
+void DistractorCircle::endEffect()
+{
+
+}
+
 bool DistractorCircle::isCollectorNearSquare(Agent* agent, Level* level)
 {
 	for (auto& collectorTriangle : level->triangle_agents)
 	{
-		for(auto& collectableSquare : level->square_agents)
+		for(auto& collectableSquare : level->collectableSquare_agents)
 		{
 			if(!collectableSquare.collected && Vector2Distance(collectorTriangle.position1, collectableSquare.position1) < 100.0f)
 			{
@@ -703,12 +770,24 @@ Agent* Level::get_agent(int id)
 	return nullptr;
 }
 
+Agent* Level::spawn_agent(PowerUpSqaure agent)
+{
+	Agent* result = nullptr;
+
+	powerUp_agents.push_back(agent);
+	result = &powerUp_agents.back();
+
+	pending_agents.push_back(result);
+
+	return result;
+}
+
 Agent* Level::spawn_agent(CollectableSquare agent)
 {
 	Agent* result = nullptr;
 
-	square_agents.push_back(agent);
-	result = &square_agents.back();
+	collectableSquare_agents.push_back(agent);
+	result = &collectableSquare_agents.back();
 
 	pending_agents.push_back(result);
 	
@@ -766,7 +845,9 @@ void Level::remove_dead_and_add_pending_agents()
 	}
 
 	// This must happen _after_ we remove agents from the vector 'all_agents'.
-	square_agents.remove_if([](CollectableSquare& a) {return a.dead; });
+
+	collectableSquare_agents.remove_if([](CollectableSquare& a) {return a.dead; });
+	powerUp_agents.remove_if([](PowerUpSqaure& a) {return a.dead; });
 	triangle_agents.remove_if([](CollectorTriangle& a) {return a.dead; });
 	rectangle_agents.remove_if([](GuardianRectangle& a) {return a.dead; });
 	circle_agents.remove_if([](DistractorCircle& a) {return a.dead;  });
@@ -787,8 +868,10 @@ void Level::remove_dead_and_add_pending_agents()
 void Level::reset()
 {
 	int squareCount = 10;
+	spawnCollectableSquares(squareCount, this);
 	
-	setupCollectableSquares(squareCount, this);
+	int powerUpCount = 1;
+	spawnPowerUps(powerUpCount, this);
 
 	auto triangle = spawn_agent(CollectorTriangle());
 	triangle->position1 = { 100, 200 };
@@ -817,15 +900,21 @@ void Level::update()
 
 	if (currentTime > tickTimer) 
 	{
-		for (auto& collectableSquare : square_agents)
+		for (auto& collectableSquare : collectableSquare_agents)
 		{
 			collectableSquare.sense(this);
 			collectableSquare.decide();
 		}
 
+		for(auto& powerUp : powerUp_agents)
+		{
+			powerUp.sense(this);
+			powerUp.decide();
+		}
+
 		for (auto& collectorTriangle : triangle_agents)
 		{
-			collectorTriangle.sense(this, square_agents);
+			collectorTriangle.sense(this, collectableSquare_agents);
 			collectorTriangle.decide();
 		}
 
@@ -843,9 +932,14 @@ void Level::update()
 		currentTime = 0.0f;
 	}
 
-	for (auto& collectableSquare : square_agents)
+	for (auto& collectableSquare : collectableSquare_agents)
 	{
 		collectableSquare.act(this);
+	}
+
+	for (auto& powerUp : powerUp_agents)
+	{
+		powerUp.act(this);
 	}
 
 	for (auto& collectorTriangle : triangle_agents)
@@ -864,7 +958,7 @@ void Level::update()
 	}
 	
 	bool allCollected = true;
-	for (auto& square : square_agents) {
+	for (auto& square : collectableSquare_agents) {
 		if (!square.collected) {
 			allCollected = false;
 			break;
@@ -872,21 +966,26 @@ void Level::update()
 	}
 
 	if (allCollected) {
-		for (auto& square : square_agents) {
+		for (auto& square : collectableSquare_agents) {
 			square.collected = false;
 			
 			// reset position or any other properties
 		}
 		int squareCount = 10;
-		setupCollectableSquares(squareCount, this);
+		spawnCollectableSquares(squareCount, this);
 	}
 }
 
 void Level::draw()
 {
-	for (auto& collectableSquare : square_agents)
+	for (auto& collectableSquare : collectableSquare_agents)
 	{
 		collectableSquare.draw();
+	}
+
+	for(auto& powerUp : powerUp_agents)
+	{
+		powerUp.draw();
 	}
 
 	for(auto& collectorTriangle : triangle_agents)
@@ -910,7 +1009,7 @@ void Level::draw()
 	DrawText(scoreString.c_str(), 10, 10, 20, PURPLE);
 }
 
-void Level::setupCollectableSquares(int count, Level* level)
+void Level::spawnCollectableSquares(int count, Level* level)
 {
 	std::srand(std::time(nullptr));
 
@@ -920,5 +1019,19 @@ void Level::setupCollectableSquares(int count, Level* level)
 		square.size = { 25, 25 }; // Fixed size for example, you can randomize this as well
 		square.setupBehaviourTree(level);
 		spawn_agent(square);
+	}
+}
+
+void Level::spawnPowerUps(int count, Level* level)
+{
+	std::srand(std::time(nullptr));
+
+	for(int i = 0; i < count; ++i)
+	{
+		PowerUpSqaure powerUp;
+		powerUp.position1 = { static_cast<float>(std::rand() % GetScreenWidth()), static_cast<float>(std::rand() % GetScreenHeight()) };
+		powerUp.size = {25, 25};
+		powerUp.setupBehaviourTree(level);
+		spawn_agent(powerUp);
 	}
 }
