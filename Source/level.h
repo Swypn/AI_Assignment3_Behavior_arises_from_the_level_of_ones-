@@ -148,6 +148,9 @@ public:
 class CollectorTriangle : public Agent 
 {
 	// Collector
+	float effectTimer = 5.0f;
+	float currentTime = 0.0f;
+	bool isEffectOn = false;
 	float speed = 100.0f;
 	float defualtSpeed = 100.0f;
 	float orientation = 0.0f;

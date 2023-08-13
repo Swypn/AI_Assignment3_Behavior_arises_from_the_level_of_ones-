@@ -172,6 +172,7 @@ void CollectorTriangle::sense(Level* level, std::list<CollectableSquare>& square
 
 		if (Vector2Distance(this->position1, powerUp.position1) < 50.0) {
 			powerUp.collected = true;
+			applyEffect();
 			std::cout << "collected powerUp" << std::endl;
 			//score++;
 		}
@@ -197,6 +198,16 @@ void CollectorTriangle::act(Level* level)
 	{
 		powerUpSqaure->collected = true;
 	}
+
+	if(currentTime > effectTimer)
+	{
+		endEffect();
+		currentTime = 0.0f;
+	} 
+	else if (isEffectOn)
+	{
+		currentTime += GetFrameTime();
+	}
 }
 
 void CollectorTriangle::draw()
@@ -215,11 +226,13 @@ void CollectorTriangle::draw()
 
 void CollectorTriangle::applyEffect()
 {
-	speed = 150.0f;
+	isEffectOn = true;
+	speed = 300.0f;
 }
 
 void CollectorTriangle::endEffect()
 {
+	isEffectOn = false;
 	speed = defualtSpeed;
 }
 
@@ -349,12 +362,12 @@ bool CollectorTriangle::moveToPowerUp(Agent* agent)
 	direction = Vector2Normalize(direction);
 	Vector2 newPosition = Vector2Add(center, Vector2Scale(direction, speed * GetFrameTime()));
 
-	// Check if the agent reached the power-up
-	if (Vector2Distance(newPosition, powerUpPosition) < 10.0f) { // 10.0f can be adjusted based on desired precision
-		isPowerUpCollected = true;
-		applyEffect(); // Apply the effect once the power-up is collected
-		return true; // Power-up successfully collected
-	}
+	//// Check if the agent reached the power-up
+	//if (Vector2Distance(newPosition, powerUpPosition) < 10.0f) { // 10.0f can be adjusted based on desired precision
+	//	isPowerUpCollected = true;
+	//	applyEffect(); // Apply the effect once the power-up is collected
+	//	return true; // Power-up successfully collected
+	//}
 
 	// Update agent's position
 	center = newPosition;
