@@ -163,20 +163,20 @@ void CollectorTriangle::sense(Level* level, std::list<CollectableSquare>& square
 	this->itemInSight = closestSquare != nullptr;
 
 	// Find powerUp
-	for (auto& powerUp : level->powerUp_agents) {
-		float distance = Vector2Distance(center, powerUp.position1);
-		if (distance < 100.0f) { // This value determines how close the power-up should be to prioritize it
-			powerUpPosition = powerUp.position1;
-			powerUpSqaure = &powerUp;
-		}
+	//for (auto& powerUp : level->powerUp_agents) {
+	//	float distance = Vector2Distance(center, powerUp.position1);
+	//	if (distance < 100.0f) { // This value determines how close the power-up should be to prioritize it
+	//		powerUpPosition = powerUp.position1;
+	//		powerUpSqaure = &powerUp;
+	//	}
 
-		if (Vector2Distance(this->position1, powerUp.position1) < 50.0) {
-			powerUp.collected = true;
-			applyEffect();
-			std::cout << "collected powerUp" << std::endl;
-			//score++;
-		}
-	}
+	//	if (Vector2Distance(this->position1, powerUp.position1) < 50.0) {
+	//		powerUp.collected = true;
+	//		applyEffect();
+	//		std::cout << "collected powerUp" << std::endl;
+	//		//score++;
+	//	}
+	//}
 }
 
 void CollectorTriangle::decide()
@@ -186,7 +186,11 @@ void CollectorTriangle::decide()
 
 void CollectorTriangle::act(Level* level)
 {
-	if (targetAquired) {
+	if(chasePowerUp)
+	{
+		moveToPowerUp(this);
+	}
+	else if (targetAquired) {
 		moveToItem(this);
 	}
 	else if(!targetAquired)
@@ -197,6 +201,7 @@ void CollectorTriangle::act(Level* level)
 	if(isPowerUpCollected && powerUpSqaure)
 	{
 		powerUpSqaure->collected = true;
+		isPowerUpCollected = false;
 	}
 
 	if(currentTime > effectTimer)
@@ -208,6 +213,7 @@ void CollectorTriangle::act(Level* level)
 	{
 		currentTime += GetFrameTime();
 	}
+
 }
 
 void CollectorTriangle::draw()
@@ -350,29 +356,35 @@ bool CollectorTriangle::searchForPowerUp(Agent* agent, Level* level)
 			powerUpPosition = powerUp.position1;
 			powerUpSqaure = &powerUp;
 			targetAquired = false;
+			chasePowerUp = true;
 			return true; // Power-up found and within range
 		}
 	}
+	chasePowerUp = false;
 	return false; // No power-up in range
 }
 
 bool CollectorTriangle::moveToPowerUp(Agent* agent)
 {
-	Vector2 direction = Vector2Subtract(powerUpPosition, center);
-	direction = Vector2Normalize(direction);
-	Vector2 newPosition = Vector2Add(center, Vector2Scale(direction, speed * GetFrameTime()));
+	if(Vector2Length(Vector2Subtract(position1, powerUpPosition)))
+	{
+		Vector2 direction = Vector2Subtract(powerUpPosition, center);
+		direction = Vector2Normalize(direction);
+		Vector2 newPosition = Vector2Add(center, Vector2Scale(direction, speed * GetFrameTime()));
 
-	//// Check if the agent reached the power-up
-	//if (Vector2Distance(newPosition, powerUpPosition) < 10.0f) { // 10.0f can be adjusted based on desired precision
-	//	isPowerUpCollected = true;
-	//	applyEffect(); // Apply the effect once the power-up is collected
-	//	return true; // Power-up successfully collected
-	//}
+			//// Check if the agent reached the power-up
+			if (Vector2Distance(newPosition, powerUpPosition) < 10.0f) { // 10.0f can be adjusted based on desired precision
+				isPowerUpCollected = true;
+				applyEffect(); // Apply the effect once the power-up is collected
+				return true; // Power-up successfully collected
+			}
 
-	// Update agent's position
-	center = newPosition;
-
-	return false; // Power-up not yet collected
+		// Update agent's position
+		center = newPosition;
+		return true;
+	}
+	
+	return false; 
 }
 
 Vector2 CollectorTriangle::Vector2Rotate(Vector2 point, float rad)
@@ -403,6 +415,19 @@ void GuardianRectangle::setupBehaviourTree(Level* level)
 {
 	SelectorNode* rootNode = new SelectorNode();
 
+	SequenceNode* moveTowardPowerUpSequence = new SequenceNode();
+
+	ActionNode* findPowerUpNode = new ActionNode([this, level](Agent* agent) {
+		return this->findPowerUp(agent, level);
+		});
+
+	ActionNode* moveToPowerUpNode = new ActionNode([this](Agent* agent) {
+		return this->moveToPowerUp(agent);
+		});
+
+	moveTowardPowerUpSequence->addChild(findPowerUpNode);
+	moveTowardPowerUpSequence->addChild(moveToPowerUpNode);
+
 	SequenceNode* protectCollectorSequence = new SequenceNode();
 
 	ActionNode* detectDistractorNode = new ActionNode([this, level](Agent* agent) {
@@ -426,9 +451,11 @@ void GuardianRectangle::setupBehaviourTree(Level* level)
 		return this->moveToPatrolPoint(agent, level);
 		});
 
+
 	patrolSequence->addChild(findPatrolPointNode);
 	patrolSequence->addChild(moveToPatrolPointNode);
 
+	rootNode->addChild(moveTowardPowerUpSequence);
 	rootNode->addChild(protectCollectorSequence);
 	rootNode->addChild(patrolSequence);
 
@@ -466,13 +493,33 @@ void GuardianRectangle::decide()
 
 void GuardianRectangle::act(Level* level)
 {
-	if(intruderInSight)
+	if(chasePowerUp)
+	{
+		moveToPowerUp(this);
+	}
+	else if(intruderInSight)
 	{
 		chaseAwayDistractor(this);
 	} 
 	else if(targetAquired)
 	{
 		moveToPatrolPoint(this, level);
+	}
+
+	if (isPowerUpCollected && powerUpSqaure)
+	{
+		powerUpSqaure->collected = true;
+		isPowerUpCollected = false;
+	}
+
+	if (currentTime > effectTimer)
+	{
+		endEffect();
+		currentTime = 0.0f;
+	}
+	else if (isEffectOn)
+	{
+		currentTime += GetFrameTime();
 	}
 }
 
@@ -483,11 +530,13 @@ void GuardianRectangle::draw()
 
 void GuardianRectangle::applyEffect()
 {
+	isEffectOn = true;
 	size = {100, 100};
 }
 
 void GuardianRectangle::endEffect()
 {
+	isEffectOn = false;
 	size = { 50, 50 };
 }
 
@@ -504,7 +553,7 @@ bool GuardianRectangle::findPatrolPoint(Agent* agent, Level* level)
 	}
 
 	auto it = std::next(level->collectableSquare_agents.begin(), randomIndexNumber);
-
+	
 	targetPosition = it->position1;
 	targetAquired = true;
 
@@ -560,6 +609,46 @@ bool GuardianRectangle::chaseAwayDistractor(Agent* agent)
 		Vector2 newPosition = Vector2Add(position1, Vector2Scale(chaseDirection, speed * GetFrameTime()));
 		position1 = newPosition;
 		targetAquired = false;
+		
+		return true;
+	}
+	return false;
+}
+
+bool GuardianRectangle::findPowerUp(Agent* agent, Level* level)
+{
+	for(auto& powerUp : level->powerUp_agents)
+	{
+		float distance = Vector2Distance(position1, powerUp.position1);
+		if (distance < 200.0f) { // This value determines how close the power-up should be to prioritize it
+			powerUpPosition = powerUp.position1;
+			powerUpSqaure = &powerUp;
+			targetAquired = false;
+			chasePowerUp = true;
+			return true; // Power-up found and within range
+		}
+	}
+	chasePowerUp = false;
+	return false;
+}
+
+bool GuardianRectangle::moveToPowerUp(Agent* agent)
+{
+	if (Vector2Length(Vector2Subtract(position1, powerUpPosition)))
+	{
+		Vector2 powerUpDirection = Vector2Normalize(Vector2Subtract(powerUpPosition, position1));
+		Vector2 newPosition = Vector2Add(position1, Vector2Scale(powerUpDirection, speed * GetFrameTime()));
+		
+		if (Vector2Distance(newPosition, powerUpPosition) < 10.0f) { // 10.0f can be adjusted based on desired precision
+			isPowerUpCollected = true;
+			applyEffect(); // Apply the effect once the power-up is collected
+			return true; // Power-up successfully collected
+		}
+
+		
+		position1 = newPosition;
+		isPowerUpCollected = false;
+		targetAquired = false;
 		return true;
 	}
 	return false;
@@ -578,7 +667,20 @@ void GuardianRectangle::setPosition(float positionX, float positionY)
 void DistractorCircle::setupBehaviourTree(Level* level)
 {
 	SelectorNode* rootNode = new SelectorNode();
+	
+	SequenceNode* moveTowardPowerUpSequence = new SequenceNode();
 
+	ActionNode* findPowerUpNode = new ActionNode([this, level](Agent* agent) {
+		return this->findPowerUp(agent, level);
+		});
+
+	ActionNode* moveToPowerUpNode = new ActionNode([this, level](Agent* agent) {
+		return this->moveToPowerUp(agent, level);
+		});
+
+	moveTowardPowerUpSequence->addChild(findPowerUpNode);
+	moveTowardPowerUpSequence->addChild(moveToPowerUpNode);
+	
 	// avoid guardian
 	SequenceNode* avoidGuardianSequence = new SequenceNode();
 
@@ -630,6 +732,7 @@ void DistractorCircle::setupBehaviourTree(Level* level)
 	chaseOrFlankSelector->addChild(moveBetweenSequence);
 	chaseOrFlankSelector->addChild(chaseCollectorSequence);
 	
+	rootNode->addChild(moveTowardPowerUpSequence);
 	rootNode->addChild(avoidGuardianSequence);
 	rootNode->addChild(moveBetweenSequence);
 
@@ -647,6 +750,10 @@ void DistractorCircle::decide()
 
 void DistractorCircle::act(Level* level)
 {
+	if(chasePowerUp)
+	{
+		moveToPowerUp(this, level);
+	}
 	if(targetAquired && isFlanking)
 	{
 		moveBetweenCollectorAndSquare(this);
@@ -659,6 +766,22 @@ void DistractorCircle::act(Level* level)
 	{
 		evadeGuardian(this);
 	}
+
+	if (isPowerUpCollected && powerUpSqaure)
+	{
+		powerUpSqaure->collected = true;
+		isPowerUpCollected = false;
+	}
+
+	if (currentTime > effectTimer)
+	{
+		endEffect();
+		currentTime = 0.0f;
+	}
+	else if (isEffectOn)
+	{
+		currentTime += GetFrameTime();
+	}
 }
 
 void DistractorCircle::draw()
@@ -668,7 +791,13 @@ void DistractorCircle::draw()
 
 void DistractorCircle::applyEffect()
 {
-	// stun guardian
+	// teleport
+	Vector2 farthestCorner = findFarthestCorner();
+	if(guardianRectangle)
+	{
+		guardianRectangle->setPosition(farthestCorner.x, farthestCorner.y);
+	}
+	
 }
 
 void DistractorCircle::endEffect()
@@ -762,7 +891,7 @@ bool DistractorCircle::detectGuardian(Agent* agent, Level* level)
 
 bool DistractorCircle::evadeGuardian(Agent* agent)
 {
-	if (Vector2Length(Vector2Subtract(position1, guardianPosition)) < 100.0f)
+	if (Vector2Length(Vector2Subtract(position1, guardianPosition)) < 200.0f)
 	{
 		Vector2 evadeDirection = Vector2Normalize(Vector2Subtract(position1, guardianPosition));
 		Vector2 newPosition = Vector2Add(position1, Vector2Scale(evadeDirection, speed * GetFrameTime()));
@@ -770,6 +899,75 @@ bool DistractorCircle::evadeGuardian(Agent* agent)
 		return true;
 	}
 	return false;
+}
+
+bool DistractorCircle::findPowerUp(Agent* agent, Level* level)
+{
+	for (auto& powerUp : level->powerUp_agents)
+	{
+		float distance = Vector2Distance(position1, powerUp.position1);
+		if (distance < 300.0f) { // This value determines how close the power-up should be to prioritize it
+			powerUpPosition = powerUp.position1;
+			powerUpSqaure = &powerUp;
+			targetAquired = false;
+			chasePowerUp = true;
+			return true; // Power-up found and within range
+		}
+	}
+	chasePowerUp = false;
+	return false;
+}
+
+bool DistractorCircle::moveToPowerUp(Agent* agent, Level* level)
+{
+	if (Vector2Length(Vector2Subtract(position1, powerUpPosition)))
+	{
+		Vector2 powerUpDirection = Vector2Normalize(Vector2Subtract(powerUpPosition, position1));
+		Vector2 newPosition = Vector2Add(position1, Vector2Scale(powerUpDirection, speed * GetFrameTime()));
+
+		if (Vector2Distance(newPosition, powerUpPosition) < 10.0f) { // 10.0f can be adjusted based on desired precision
+			isPowerUpCollected = true;
+			guardianRectangle = findGuardianRectangle(level);
+			applyEffect(); // Apply the effect once the power-up is collected
+			return true; // Power-up successfully collected
+		}
+
+		position1 = newPosition;
+		isPowerUpCollected = false;
+		targetAquired = false;
+		return true;
+	}
+	return false;
+
+}
+
+Vector2 DistractorCircle::findFarthestCorner()
+{
+	
+	Vector2 topLeft = { 0.0f, 0.0f };
+	Vector2 topRight = { static_cast<float>(GetScreenWidth()), 0.0f };
+	Vector2 bottomLeft = { 0.0f, static_cast<float>(GetScreenHeight()) };
+	Vector2 bottomRight = { static_cast<float>(GetScreenWidth()), static_cast<float>(GetScreenHeight()) };
+
+	float topLeftDist = Vector2Distance(position1, topLeft);
+	float topRightDist = Vector2Distance(position1, topRight);
+	float bottomLeftDist = Vector2Distance(position1, bottomLeft);
+	float bottomRightDist = Vector2Distance(position1, bottomRight);
+
+	float maxDist = std::max({ topLeftDist, topRightDist, bottomLeftDist, bottomRightDist });
+
+	if (maxDist == topLeftDist) return topLeft;
+	if (maxDist == topRightDist) return topRight;
+	if (maxDist == bottomLeftDist) return bottomLeft;
+	return bottomRight;
+}
+
+GuardianRectangle* DistractorCircle::findGuardianRectangle(Level* level)
+{
+	if (level->rectangle_agents.empty())
+		return nullptr;
+
+	return &(level->rectangle_agents.front());
 }
 
 Agent* Level::get_agent(int id)
@@ -987,6 +1185,32 @@ void Level::update()
 		int squareCount = 10;
 		spawnCollectableSquares(squareCount, this);
 	}
+
+	bool allPowerUpCollected = true;
+	for(auto& powerUp : powerUp_agents)
+	{
+		if(!powerUp.collected)
+		{
+			allPowerUpCollected = false;
+			break;
+		}
+	}
+
+	if(allPowerUpCollected)
+	{
+		if(powerUpTime > powerUpSpawnTimer)
+		{
+			int powerCount = 1;
+			spawnPowerUps(powerCount, this);
+			powerUpTime = 0.0f;
+		}
+		else 
+		{
+			powerUpTime += GetFrameTime();
+		}
+		
+	}
+
 }
 
 void Level::draw()

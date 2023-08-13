@@ -164,6 +164,7 @@ class CollectorTriangle : public Agent
 	bool isPowerUpCollected = false;
 	Vector2 powerUpPosition;
 	PowerUpSqaure* powerUpSqaure = nullptr;
+	bool chasePowerUp = false;
 public:
 	void setupBehaviourTree(Level* level) override;
 	void sense(Level* level) override;
@@ -187,6 +188,9 @@ public:
 class GuardianRectangle : public Agent
 {
 	// Guardian
+	float effectTimer = 5.0f;
+	float currentTime = 0.0f;
+	bool isEffectOn = false;
 	float speed = 50.0f;
 	float maxDetectionDistance = 120.0f;
 	Vector2 patrolArea;
@@ -199,6 +203,10 @@ class GuardianRectangle : public Agent
 	float chaseTimer = 0.0f;
 	bool isChasing = false;
 	const float MAX_CHASE_TIME = 3.0f;
+	Vector2 powerUpPosition;
+	bool chasePowerUp = false;
+	bool isPowerUpCollected = false;
+	PowerUpSqaure* powerUpSqaure = nullptr;
 
 public:
 	void setupBehaviourTree(Level* level) override;
@@ -213,6 +221,8 @@ public:
 	bool moveToPatrolPoint(Agent* agent, Level* level);
 	bool detectDistractorCloseToCollector(Agent* agent, Level* level);
 	bool chaseAwayDistractor(Agent* agent);
+	bool findPowerUp(Agent* agent, Level* level);
+	bool moveToPowerUp(Agent* agent);
 	void isStunned();
 	void setPosition(float positionX, float positionY);
 };
@@ -233,6 +243,14 @@ class DistractorCircle : public Agent
 	bool isChasing = false;
 	bool isFlanking = false;
 	Vector2 guardianPosition = {0.0f};
+	float effectTimer = 5.0f;
+	float currentTime = 0.0f;
+	bool isEffectOn = false;
+	Vector2 powerUpPosition;
+	bool chasePowerUp = false;
+	bool isPowerUpCollected = false;
+	PowerUpSqaure* powerUpSqaure = nullptr;
+	GuardianRectangle* guardianRectangle = nullptr;
 public:
 	void setupBehaviourTree(Level* level) override;
 	void sense(Level* level) override;
@@ -247,6 +265,10 @@ public:
 	bool chaseCollector(Agent* agent);
 	bool detectGuardian(Agent* agent, Level* level);
 	bool evadeGuardian(Agent* agent);
+	bool findPowerUp(Agent* agent, Level* level);
+	bool moveToPowerUp(Agent* agent, Level* level);
+	Vector2 findFarthestCorner();
+	GuardianRectangle* findGuardianRectangle(Level* level);
 };
 
 class Level 
@@ -257,6 +279,9 @@ class Level
 	
 	int uncollectedSquareCount = 0;
 	
+	float powerUpSpawnTimer = 5.0f;
+	float powerUpTime = 0.0f;
+
 	std::unordered_map<int, Agent*> id_to_agent;
 	std::vector<Agent*> all_agents;
 
