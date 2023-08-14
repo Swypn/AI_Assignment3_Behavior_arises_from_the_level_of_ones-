@@ -223,7 +223,6 @@ public:
 	bool chaseAwayDistractor(Agent* agent);
 	bool findPowerUp(Agent* agent, Level* level);
 	bool moveToPowerUp(Agent* agent);
-	void isStunned();
 	void setPosition(float positionX, float positionY);
 };
 

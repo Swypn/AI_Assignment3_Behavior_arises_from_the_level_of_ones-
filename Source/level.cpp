@@ -123,8 +123,8 @@ void CollectorTriangle::setupBehaviourTree(Level* level)
 	
 	// Adding root order
 
-	rootNode->addChild(searchAndMoveToPowerUpSequence);
 	rootNode->addChild(evadeDistractorSequence);
+	rootNode->addChild(searchAndMoveToPowerUpSequence);
 	rootNode->addChild(searchAndMoveToItemSequence);
 	
 	this->behaviorTree = rootNode;
@@ -161,22 +161,6 @@ void CollectorTriangle::sense(Level* level, std::list<CollectableSquare>& square
 	// Store closest square
 	this->itemPosition = closestSquare ? closestSquare->position1 : Vector2{};
 	this->itemInSight = closestSquare != nullptr;
-
-	// Find powerUp
-	//for (auto& powerUp : level->powerUp_agents) {
-	//	float distance = Vector2Distance(center, powerUp.position1);
-	//	if (distance < 100.0f) { // This value determines how close the power-up should be to prioritize it
-	//		powerUpPosition = powerUp.position1;
-	//		powerUpSqaure = &powerUp;
-	//	}
-
-	//	if (Vector2Distance(this->position1, powerUp.position1) < 50.0) {
-	//		powerUp.collected = true;
-	//		applyEffect();
-	//		std::cout << "collected powerUp" << std::endl;
-	//		//score++;
-	//	}
-	//}
 }
 
 void CollectorTriangle::decide()
@@ -455,8 +439,9 @@ void GuardianRectangle::setupBehaviourTree(Level* level)
 	patrolSequence->addChild(findPatrolPointNode);
 	patrolSequence->addChild(moveToPatrolPointNode);
 
-	rootNode->addChild(moveTowardPowerUpSequence);
+
 	rootNode->addChild(protectCollectorSequence);
+	rootNode->addChild(moveTowardPowerUpSequence);
 	rootNode->addChild(patrolSequence);
 
 	this->behaviorTree = rootNode;
@@ -654,10 +639,6 @@ bool GuardianRectangle::moveToPowerUp(Agent* agent)
 	return false;
 }
 
-void GuardianRectangle::isStunned()
-{
-}
-
 void GuardianRectangle::setPosition(float positionX, float positionY)
 {
 	position1.x = positionX;
@@ -732,8 +713,9 @@ void DistractorCircle::setupBehaviourTree(Level* level)
 	chaseOrFlankSelector->addChild(moveBetweenSequence);
 	chaseOrFlankSelector->addChild(chaseCollectorSequence);
 	
-	rootNode->addChild(moveTowardPowerUpSequence);
+
 	rootNode->addChild(avoidGuardianSequence);
+	rootNode->addChild(moveTowardPowerUpSequence);
 	rootNode->addChild(moveBetweenSequence);
 
 	this->behaviorTree = rootNode;
