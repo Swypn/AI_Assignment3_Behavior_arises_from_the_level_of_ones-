@@ -31,7 +31,9 @@ public:
 	void addChild(BehaviorNode* child) {
 		children.push_back(child);
 	}
-
+	const std::vector<BehaviorNode*>& getChildren() const {
+		return children;
+	}
 protected:
 	std::vector<BehaviorNode*> children;
 };
@@ -51,7 +53,9 @@ public:
 	void addChild(BehaviorNode* child) {
 		children.push_back(child);
 	}
-
+	const std::vector<BehaviorNode*>& getChildren() const {
+		return children;
+	}
 private:
 	std::vector<BehaviorNode*> children;
 };
@@ -92,6 +96,8 @@ private:
 	ActionFunction actionFunction;
 };
 
+
+
 class Agent
 {
 public:
@@ -111,6 +117,7 @@ public:
 	virtual void decide() = 0;
 	virtual void act(Level* level)    = 0;
 	virtual void setupBehaviourTree(Level* level) = 0;
+	virtual void clearBehaviourTree()  = 0;
 	virtual void draw()   = 0;
 	virtual void applyEffect() = 0;
 	virtual void endEffect() = 0;
@@ -123,6 +130,7 @@ public:
 	bool collected = false;
 
 	void setupBehaviourTree(Level* level) override;
+	void clearBehaviourTree() override;
 	void sense(Level* level) override;
 	void decide() override;
 	void act(Level* level) override;
@@ -137,6 +145,7 @@ public:
 	bool collected = false;
 
 	void setupBehaviourTree(Level* level) override;
+	void clearBehaviourTree() override;
 	void sense(Level* level) override;
 	void decide() override;
 	void act(Level* level) override;
@@ -167,6 +176,7 @@ class CollectorTriangle : public Agent
 	bool chasePowerUp = false;
 public:
 	void setupBehaviourTree(Level* level) override;
+	void clearBehaviourTree() override;
 	void sense(Level* level) override;
 	void sense(Level* level, std::list<CollectableSquare>& squares);
 	void decide() override;
@@ -210,6 +220,7 @@ class GuardianRectangle : public Agent
 
 public:
 	void setupBehaviourTree(Level* level) override;
+	void clearBehaviourTree() override;
 	void sense(Level* level) override;
 	void sense(Level* level, std::list<CollectableSquare>& squares);
 	void decide() override;
@@ -252,6 +263,7 @@ class DistractorCircle : public Agent
 	GuardianRectangle* guardianRectangle = nullptr;
 public:
 	void setupBehaviourTree(Level* level) override;
+	void clearBehaviourTree() override;
 	void sense(Level* level) override;
 	void decide() override;
 	void act(Level* level);

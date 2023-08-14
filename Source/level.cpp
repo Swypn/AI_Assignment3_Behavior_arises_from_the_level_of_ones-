@@ -3,9 +3,37 @@
 #include <string>
 #include <iostream>
 
+void deleteNode(BehaviorNode* node) {
+
+	if (!node) return;
+
+	SelectorNode* selector = dynamic_cast<SelectorNode*>(node);
+	SequenceNode* sequence = dynamic_cast<SequenceNode*>(node);
+
+	if (selector) {
+		// For each child node, recursively call deleteNode
+		for (BehaviorNode* child : selector->getChildren()) {
+			deleteNode(child);
+		}
+	}
+	else if (sequence) {
+		// For each child node, recursively call deleteNode
+		for (BehaviorNode* child : sequence->getChildren()) {
+			deleteNode(child);
+		}
+	}
+
+	delete node;
+}
 
 void PowerUpSqaure::setupBehaviourTree(Level* level)
 {
+}
+
+void PowerUpSqaure::clearBehaviourTree()
+{
+	deleteNode(behaviorTree); 
+	behaviorTree = nullptr;
 }
 
 void PowerUpSqaure::sense(Level* level)
@@ -42,6 +70,12 @@ void PowerUpSqaure::draw()
 void CollectableSquare::setupBehaviourTree(Level* level)
 {
 
+}
+
+void CollectableSquare::clearBehaviourTree()
+{
+	deleteNode(behaviorTree);
+	behaviorTree = nullptr;
 }
 
 void CollectableSquare::sense(Level* level)
@@ -128,6 +162,12 @@ void CollectorTriangle::setupBehaviourTree(Level* level)
 	rootNode->addChild(searchAndMoveToItemSequence);
 	
 	this->behaviorTree = rootNode;
+}
+
+void CollectorTriangle::clearBehaviourTree()
+{
+	deleteNode(behaviorTree);
+	behaviorTree = nullptr;
 }
 
 void CollectorTriangle::sense(Level* level)
@@ -447,6 +487,12 @@ void GuardianRectangle::setupBehaviourTree(Level* level)
 	this->behaviorTree = rootNode;
 }
 
+void GuardianRectangle::clearBehaviourTree()
+{
+	deleteNode(behaviorTree);
+	behaviorTree = nullptr;
+}
+
 void GuardianRectangle::sense(Level* level)
 {
 
@@ -719,6 +765,12 @@ void DistractorCircle::setupBehaviourTree(Level* level)
 	rootNode->addChild(moveBetweenSequence);
 
 	this->behaviorTree = rootNode;
+}
+
+void DistractorCircle::clearBehaviourTree()
+{
+	deleteNode(behaviorTree);
+	behaviorTree = nullptr;
 }
 
 void DistractorCircle::sense(Level* level)
@@ -1030,6 +1082,7 @@ void Level::remove_dead_and_add_pending_agents()
 	{
 		if((*agent_iterator)->dead)
 		{
+			(*agent_iterator)->clearBehaviourTree();
 			id_to_agent.erase((*agent_iterator)->id);
 			agent_iterator = all_agents.erase(agent_iterator);
 		} else {
@@ -1254,3 +1307,4 @@ void Level::spawnPowerUps(int count, Level* level)
 		spawn_agent(powerUp);
 	}
 }
+
