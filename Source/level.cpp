@@ -362,7 +362,7 @@ bool CollectorTriangle::detectDistractor(Agent* agent, Level* level)
 
 bool CollectorTriangle::evadeDistractor(Agent* agent)
 {
-	if (Vector2Length(Vector2Subtract(center, distractorPosition)) < 200.0f)
+	if (Vector2Length(Vector2Subtract(center, distractorPosition)) < 100.0f)
 	{
 		Vector2 evadeDirection = Vector2Normalize(Vector2Subtract(center, distractorPosition));
 		Vector2 newPosition = Vector2Add(center, Vector2Scale(evadeDirection, speed * GetFrameTime()));
@@ -845,7 +845,7 @@ bool DistractorCircle::isCollectorNearSquare(Agent* agent, Level* level)
 	{
 		for(auto& collectableSquare : level->collectableSquare_agents)
 		{
-			if(!collectableSquare.collected && Vector2Distance(collectorTriangle.position1, collectableSquare.position1) < 100.0f)
+			if(!collectableSquare.collected && Vector2Distance(collectorTriangle.position1, collectableSquare.position1) < 500.0f)
 			{
 				sqaureTarget = &collectableSquare;
 				triangleTarget = &collectorTriangle;
@@ -912,7 +912,7 @@ bool DistractorCircle::detectGuardian(Agent* agent, Level* level)
 {
 	for (auto& rectangle : level->rectangle_agents) {
 		float distance = Vector2Distance(position1, rectangle.position1);
-		if (distance < 200.0f) { // Change this value to adjust the detection radius
+		if (distance < 100.0f) { // Change this value to adjust the detection radius
 			guardianPosition = rectangle.position1;
 			targetAquired = false;
 			speed = 150.0f;
@@ -925,7 +925,7 @@ bool DistractorCircle::detectGuardian(Agent* agent, Level* level)
 
 bool DistractorCircle::evadeGuardian(Agent* agent)
 {
-	if (Vector2Length(Vector2Subtract(position1, guardianPosition)) < 200.0f)
+	if (Vector2Length(Vector2Subtract(position1, guardianPosition)) < 150.0f)
 	{
 		Vector2 evadeDirection = Vector2Normalize(Vector2Subtract(position1, guardianPosition));
 		Vector2 newPosition = Vector2Add(position1, Vector2Scale(evadeDirection, speed * GetFrameTime()));
